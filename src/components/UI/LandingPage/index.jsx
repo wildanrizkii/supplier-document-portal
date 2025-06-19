@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import React, { useState, useEffect } from "react";
 import LandingPageHeader from "./Header";
 import { VscLinkExternal } from "react-icons/vsc";
+import Footer from "./Footer";
 
 const LandingPage = () => {
   const [activeFeature, setActiveFeature] = useState(0);
@@ -170,7 +171,7 @@ const LandingPage = () => {
 
               {/* Enhanced CTA Buttons */}
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center px-4">
-                <button className="w-full sm:w-auto group px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-gray-900 to-gray-700 hover:from-blue-600 hover:to-purple-600 text-white font-light rounded-full transition-all duration-500 transform hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/25 active:scale-95">
+                <button className="w-full sm:w-auto group px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-gray-900 to-gray-700 hover:from-blue-600 hover:to-purple-600 text-white font-light rounded-full transition-all duration-500 transform hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/25 active:scale-95 cursor-pointer">
                   <span className="flex items-center justify-center">
                     <svg
                       className="w-6 h-6 mr-2 transition-transform duration-300"
@@ -189,7 +190,7 @@ const LandingPage = () => {
                   </span>
                 </button>
 
-                <button className="w-full sm:w-auto group px-6 sm:px-8 py-3 sm:py-4 bg-white/70 backdrop-blur-sm border border-gray-200 text-gray-700 font-light rounded-full hover:bg-white hover:shadow-xl hover:border-gray-200 transition-all duration-300 transform hover:scale-105 active:scale-95">
+                <button className="w-full sm:w-auto group px-6 sm:px-8 py-3 sm:py-4 bg-white/70 backdrop-blur-sm border border-gray-200 text-gray-700 font-light rounded-full hover:bg-white hover:shadow-xl hover:border-gray-200 transition-all duration-300 transform hover:scale-105 active:scale-95 cursor-pointer">
                   <span className="flex items-center justify-center">
                     <svg
                       className="w-6 h-6 mr-2"
@@ -212,7 +213,7 @@ const LandingPage = () => {
 
             {/* Cleaner Hero Image */}
             <div
-              className={`relative group transition-all duration-1000 delay-300 ${
+              className={`relative pt-10 group transition-all duration-1000 delay-300 ${
                 isVisible
                   ? "opacity-100 translate-y-0"
                   : "opacity-0 translate-y-10"
@@ -269,8 +270,8 @@ const LandingPage = () => {
       <section className="py-20 bg-gradient-to-b from-gray-50 to-white relative overflow-hidden">
         <div className="max-w-6xl mx-auto px-6 relative z-10">
           <div className="text-center mb-16">
-            <h3 className="text-3xl md:text-4xl font-light text-gray-900 mb-4 hover:text-blue-600 transition-colors duration-300 cursor-default">
-              Mengapa Memilih CMW Portal?
+            <h3 className="text-3xl md:text-4xl font-light text-gray-900 mb-4 duration-300 cursor-default">
+              Mengapa Memilih Portal Dokumen CMW?
             </h3>
             <p className="text-lg font-light text-gray-600 max-w-2xl mx-auto hover:text-gray-800 transition-colors duration-300 cursor-default">
               Platform yang dirancang khusus untuk kemudahan pengelolaan dokumen
@@ -314,6 +315,8 @@ const LandingPage = () => {
           </div>
         </div>
       </section>
+
+      <Footer />
     </div>
   );
 };
