@@ -30,7 +30,10 @@ const LandingPageHeader = () => {
           <div className="flex justify-between items-center">
             {/* Logo */}
             <div className="flex items-center group cursor-pointer space-x-1">
-              <GiPortal size={22} />
+              <GiPortal
+                className="text-gray-900 group-hover:text-blue-600 transition-colors duration-300"
+                size={22}
+              />
               <p className="text-xl font-semibold tracking-tight text-nowrap text-gray-900 group-hover:text-blue-600 transition-colors duration-300">
                 Portal Dokumen
               </p>

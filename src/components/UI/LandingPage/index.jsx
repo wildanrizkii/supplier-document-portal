@@ -3,6 +3,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import React, { useState, useEffect } from "react";
 import LandingPageHeader from "./Header";
+import { VscLinkExternal } from "react-icons/vsc";
 
 const LandingPage = () => {
   const [activeFeature, setActiveFeature] = useState(0);
@@ -229,18 +230,28 @@ const LandingPage = () => {
                   />
 
                   {/* Subtle Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-black/50 via-black/30 to-blue-900/40 group-hover:from-black/40 group-hover:via-black/20 group-hover:to-blue-900/30 transition-all duration-500"></div>
+                  <div className="absolute inset-0 bg-gradient-to-br from-black/50 via-black/30 to-blue-900/40 group-hover:from-black/50 group-hover:via-black/40 group-hover:to-blue-900/30 transition-all duration-1000"></div>
 
                   {/* Title and Subtitle Overlay */}
+
                   <div className="absolute inset-0 flex items-center justify-center text-center p-4 sm:p-6 md:p-8">
-                    <div className="max-w-2xl mx-auto">
-                      <h3 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-semibold text-white mb-2 sm:mb-3 md:mb-4 opacity-90 group-hover:opacity-100 transition-opacity duration-500">
+                    <div className="max-w-2xl mx-auto space-y-4 sm:space-y-5 md:space-y-6">
+                      <h3 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-semibold text-white opacity-90 group-hover:opacity-100 transition-opacity duration-500">
                         PT. Cipta Mandiri Wirasakti
                       </h3>
                       <p className="text-sm sm:text-base md:text-lg lg:text-xl text-white font-medium leading-relaxed opacity-80 group-hover:opacity-90 transition-opacity duration-500">
                         To be the leader of wire harness manufacturing in the
                         automotive industry
                       </p>
+                      <a
+                        href="https://www.cmw.co.id/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/5 text-white font-medium px-6 py-2.5 rounded-md shadow-md backdrop-blur-sm transition-all duration-300"
+                      >
+                        Kunjungi
+                        <VscLinkExternal size={18} />
+                      </a>
                     </div>
                   </div>
                 </div>
