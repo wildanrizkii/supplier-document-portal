@@ -1,16 +1,19 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   MdEmail,
   MdLock,
   MdVisibility,
   MdVisibilityOff,
   MdPerson,
+  MdMarkEmailRead,
 } from "react-icons/md";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import { GiPortal } from "react-icons/gi";
 import Link from "next/link";
+import supabase from "@/app/utils/db";
+import bcrypt from "bcryptjs";
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -23,9 +26,108 @@ const Register = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isResendLoading, setIsResendLoading] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
+
+  // Spam protection states
+  const [lastResendTime, setLastResendTime] = useState(null);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendAttempts, setResendAttempts] = useState(0);
+  const [isBlocked, setIsBlocked] = useState(false);
 
   const router = useRouter();
+
+  // Constants for spam protection
+  const COOLDOWN_DURATION = 60; // 60 seconds between resends
+  const MAX_ATTEMPTS_PER_HOUR = 3; // Maximum 3 attempts per hour
+  const BLOCK_DURATION = 3600; // 1 hour block after exceeding limits
+
+  // Cooldown timer effect
+  useEffect(() => {
+    let interval;
+    if (resendCooldown > 0) {
+      interval = setInterval(() => {
+        setResendCooldown((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [resendCooldown]);
+
+  // Check if user is currently blocked and restore timer state
+  useEffect(() => {
+    const checkBlockAndTimerStatus = () => {
+      if (!formData.email) return;
+
+      const now = Date.now();
+
+      // Check block status
+      const blockData = localStorage.getItem(`resend_block_${formData.email}`);
+      if (blockData) {
+        const { blockTime, attempts } = JSON.parse(blockData);
+
+        if (now - blockTime < BLOCK_DURATION * 1000) {
+          setIsBlocked(true);
+          setResendAttempts(attempts);
+        } else {
+          // Block expired, reset
+          localStorage.removeItem(`resend_block_${formData.email}`);
+          setIsBlocked(false);
+          setResendAttempts(0);
+        }
+      }
+
+      // Restore cooldown timer state
+      const timerData = localStorage.getItem(`resend_timer_${formData.email}`);
+      if (timerData) {
+        const { lastResendTime: storedLastResendTime } = JSON.parse(timerData);
+        const timeSinceLastResend = now - storedLastResendTime;
+
+        if (timeSinceLastResend < COOLDOWN_DURATION * 1000) {
+          const remainingCooldown = Math.ceil(
+            (COOLDOWN_DURATION * 1000 - timeSinceLastResend) / 1000
+          );
+          setLastResendTime(storedLastResendTime);
+          setResendCooldown(remainingCooldown);
+        } else {
+          // Cooldown expired, clean up
+          localStorage.removeItem(`resend_timer_${formData.email}`);
+          setLastResendTime(null);
+          setResendCooldown(0);
+        }
+      }
+
+      // Update attempts count from localStorage
+      const attemptData = localStorage.getItem(
+        `resend_attempts_${formData.email}`
+      );
+      if (attemptData) {
+        const attempts = JSON.parse(attemptData).filter(
+          (timestamp) => now - timestamp < 3600000 // Filter attempts within last hour
+        );
+        setResendAttempts(attempts.length);
+
+        // Update localStorage with filtered attempts
+        if (attempts.length !== JSON.parse(attemptData).length) {
+          localStorage.setItem(
+            `resend_attempts_${formData.email}`,
+            JSON.stringify(attempts)
+          );
+        }
+      }
+    };
+
+    // Only check if on success page and email exists
+    if (registrationSuccess && formData.email) {
+      checkBlockAndTimerStatus();
+    }
+  }, [formData.email, registrationSuccess]);
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -53,7 +155,7 @@ const Register = () => {
 
     // Password validation
     if (password.length < 6) {
-      return "Password harus minimal 6 karakter!";
+      return "Kata sandi harus minimal 6 karakter!";
     }
 
     // Password strength validation
@@ -62,12 +164,12 @@ const Register = () => {
     const hasNumbers = /\d/.test(password);
 
     if (!hasUpperCase || !hasLowerCase || !hasNumbers) {
-      return "Password harus mengandung huruf besar, huruf kecil, dan angka!";
+      return "Kata sandi harus mengandung huruf besar, huruf kecil, dan angka!";
     }
 
     // Confirm password validation
     if (password !== confirmPassword) {
-      return "Password tidak cocok!";
+      return "Kata sandi tidak cocok!";
     }
 
     // Terms acceptance validation
@@ -78,94 +180,253 @@ const Register = () => {
     return null;
   };
 
-  const handleSubmit = async () => {
+  // Generate verification token
+  const generateVerificationToken = () => {
+    return (
+      Math.random().toString(36).substring(2, 15) +
+      Math.random().toString(36).substring(2, 15) +
+      Date.now().toString(36)
+    );
+  };
+
+  // Send verification email function
+  const sendVerificationEmail = async (email, token, name) => {
     try {
-      setIsLoading(true);
-      setError("");
-
-      // Validate form
-      const validationError = validateForm();
-      if (validationError) {
-        setError(validationError);
-        toast.error(validationError);
-        setIsLoading(false);
-        return;
-      }
-
-      // Call your registration API
-      const response = await fetch("/api/auth/register", {
+      const response = await fetch("/api/send-verification", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          password: formData.password,
+          email,
+          token,
+          name,
         }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        let errorMessage = "Pendaftaran gagal!";
+        return { success: false, error: "Gagal mengirim email verifikasi!" };
+      }
 
-        switch (response.status) {
-          case 400:
-            errorMessage = data.message || "Data pendaftaran tidak valid!";
-            break;
-          case 409:
-            errorMessage = "Email sudah terdaftar! Silakan gunakan email lain.";
-            break;
-          case 422:
-            errorMessage = "Format data tidak valid!";
-            break;
-          case 500:
-            errorMessage = "Terjadi kesalahan server! Silakan coba lagi nanti.";
-            break;
-          default:
-            errorMessage =
-              data.message || "Terjadi kesalahan saat pendaftaran!";
+      return { success: true };
+    } catch (error) {
+      console.error("Error sending verification email:", error);
+      return {
+        success: false,
+        error: "Terjadi kesalahan saat mengirim email!",
+      };
+    }
+  };
+
+  // Check spam protection before allowing resend
+  const checkSpamProtection = () => {
+    const now = Date.now();
+    const email = formData.email;
+
+    // Check if user is currently blocked
+    if (isBlocked) {
+      const blockData = localStorage.getItem(`resend_block_${email}`);
+      if (blockData) {
+        const { blockTime } = JSON.parse(blockData);
+        const remainingTime = Math.ceil(
+          (BLOCK_DURATION * 1000 - (now - blockTime)) / 1000 / 60
+        );
+        return {
+          allowed: false,
+          error: `Anda telah melebihi batas pengiriman email. Coba lagi dalam ${remainingTime} menit.`,
+        };
+      }
+    }
+
+    // Check cooldown period
+    if (lastResendTime && now - lastResendTime < COOLDOWN_DURATION * 1000) {
+      const remainingTime = Math.ceil(
+        (COOLDOWN_DURATION * 1000 - (now - lastResendTime)) / 1000
+      );
+      return {
+        allowed: false,
+        error: `Mohon tunggu ${remainingTime} detik sebelum mengirim ulang.`,
+      };
+    }
+
+    // Check hourly limits
+    const attemptData = localStorage.getItem(`resend_attempts_${email}`);
+    let attempts = [];
+
+    if (attemptData) {
+      attempts = JSON.parse(attemptData).filter(
+        (timestamp) => now - timestamp < 3600000 // Filter attempts within last hour
+      );
+    }
+
+    if (attempts.length >= MAX_ATTEMPTS_PER_HOUR) {
+      // Block user for 1 hour
+      localStorage.setItem(
+        `resend_block_${email}`,
+        JSON.stringify({
+          blockTime: now,
+          attempts: attempts.length + 1,
+        })
+      );
+
+      setIsBlocked(true);
+      setResendAttempts(attempts.length + 1);
+
+      return {
+        allowed: false,
+        error: `Anda telah melebihi batas ${MAX_ATTEMPTS_PER_HOUR} kali pengiriman per jam. Coba lagi dalam 1 jam.`,
+      };
+    }
+
+    return { allowed: true };
+  };
+
+  // Record resend attempt with persistent timer storage
+  const recordResendAttempt = () => {
+    const now = Date.now();
+    const email = formData.email;
+
+    // Record this attempt
+    const attemptData = localStorage.getItem(`resend_attempts_${email}`);
+    let attempts = attemptData ? JSON.parse(attemptData) : [];
+
+    // Add current attempt and filter out old ones
+    attempts.push(now);
+    attempts = attempts.filter((timestamp) => now - timestamp < 3600000);
+
+    localStorage.setItem(`resend_attempts_${email}`, JSON.stringify(attempts));
+
+    // Store timer state in localStorage for persistence across refreshes
+    localStorage.setItem(
+      `resend_timer_${email}`,
+      JSON.stringify({
+        lastResendTime: now,
+      })
+    );
+
+    // Update state
+    setLastResendTime(now);
+    setResendCooldown(COOLDOWN_DURATION);
+    setResendAttempts(attempts.length);
+  };
+
+  // Fungsi untuk handle register dengan Supabase
+  const handleRegisterWithSupabase = async () => {
+    const { name, email, password } = formData;
+
+    // Cek apakah email sudah terdaftar
+    const { data: existingUser, error: checkError } = await supabase
+      .from("users")
+      .select("email")
+      .eq("email", email.toLowerCase())
+      .single();
+
+    if (checkError && checkError.code !== "PGRST116") {
+      return {
+        success: false,
+        error: "Terjadi kesalahan saat memeriksa email!",
+      };
+    }
+
+    if (existingUser) {
+      return {
+        success: false,
+        error: "Email sudah terdaftar! Silakan gunakan email lain.",
+      };
+    }
+
+    // Generate verification token
+    const verificationToken = generateVerificationToken();
+    const verificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 jam
+
+    // Hash password
+    try {
+      const saltRounds = 12;
+      const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+      // Simpan user baru ke database dengan status belum terverifikasi
+      const { data: newUser, error: insertError } = await supabase
+        .from("users")
+        .insert([
+          {
+            nama: name.trim(),
+            email: email.toLowerCase().trim(),
+            password: hashedPassword,
+            email_verified: false,
+            verification_token: verificationToken,
+            verification_token_expires: verificationExpiry.toISOString(),
+            created_at: new Date().toISOString(),
+          },
+        ])
+        .select("nama, email")
+        .single();
+
+      if (insertError) {
+        console.error("Error inserting user:", insertError);
+
+        if (insertError.code === "23505") {
+          return { success: false, error: "Email sudah terdaftar!" };
         }
 
-        setError(errorMessage);
-        toast.error(errorMessage);
-        setIsLoading(false);
-        return;
+        return {
+          success: false,
+          error: "Terjadi kesalahan saat menyimpan data!",
+        };
       }
 
-      // Success
-      toast.success("Pendaftaran berhasil! Silakan masuk ke akun Anda.");
+      // Kirim email verifikasi
+      const emailResult = await sendVerificationEmail(
+        email,
+        verificationToken,
+        name
+      );
 
-      // Clear form
-      setFormData({
-        name: "",
-        email: "",
-        password: "",
-        confirmPassword: "",
-      });
-      setAcceptTerms(false);
+      if (!emailResult.success) {
+        // Jika gagal kirim email, hapus user yang baru dibuat
+        await supabase.from("users").delete().eq("id", newUser.id);
 
-      // Redirect to login page
-      router.push("/login");
-    } catch (error) {
-      console.error("Error during registration:", error);
-
-      let errorMessage = "Terjadi kesalahan yang tidak terduga!";
-
-      if (error.name === "TypeError" && error.message.includes("fetch")) {
-        errorMessage =
-          "Tidak dapat terhubung ke server! Periksa koneksi internet Anda.";
-      } else if (error.name === "AbortError") {
-        errorMessage = "Permintaan dibatalkan! Silakan coba lagi.";
-      } else if (error.message) {
-        errorMessage = `Kesalahan: ${error.message}`;
+        return { success: false, error: emailResult.error };
       }
 
-      setError(errorMessage);
-      toast.error(errorMessage);
-      setIsLoading(false);
+      return { success: true, data: newUser };
+    } catch (hashError) {
+      console.error("Error hashing password:", hashError);
+      return {
+        success: false,
+        error: "Terjadi kesalahan saat memproses data!",
+      };
     }
+  };
+
+  const handleSubmit = async () => {
+    setIsLoading(true);
+    setError("");
+
+    // Validate form
+    const validationError = validateForm();
+    if (validationError) {
+      setError(validationError);
+      toast.error(validationError);
+      setIsLoading(false);
+      return;
+    }
+
+    // Register user dengan Supabase
+    const result = await handleRegisterWithSupabase();
+
+    if (!result.success) {
+      setError(result.error);
+      toast.error(result.error);
+      setIsLoading(false);
+      return;
+    }
+
+    // Success - show verification message
+    setRegistrationSuccess(true);
+    toast.success(
+      "Akun berhasil dibuat! Silakan periksa email Anda untuk verifikasi."
+    );
+    setIsLoading(false);
   };
 
   const handleKeyPress = (e) => {
@@ -181,6 +442,171 @@ const Register = () => {
   const toggleConfirmPasswordVisibility = () => {
     setShowConfirmPassword(!showConfirmPassword);
   };
+
+  const handleResendVerification = async () => {
+    // Check spam protection
+    const spamCheck = checkSpamProtection();
+    if (!spamCheck.allowed) {
+      toast.error(spamCheck.error);
+      return;
+    }
+
+    setIsResendLoading(true);
+
+    try {
+      const response = await fetch("/api/resend-verification", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: formData.email,
+        }),
+      });
+
+      if (response.ok) {
+        // Record the attempt
+        recordResendAttempt();
+        toast.success("Email verifikasi telah dikirim ulang!");
+      } else {
+        const errorData = await response.json();
+        toast.error(
+          errorData.message || "Gagal mengirim ulang email verifikasi!"
+        );
+      }
+    } catch (error) {
+      console.error("Resend verification error:", error);
+      toast.error("Terjadi kesalahan!");
+    }
+
+    setIsResendLoading(false);
+  };
+
+  // Format remaining cooldown time
+  const formatCooldownTime = (seconds) => {
+    if (seconds >= 60) {
+      const minutes = Math.floor(seconds / 60);
+      const remainingSeconds = seconds % 60;
+      return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
+    }
+    return `${seconds}s`;
+  };
+
+  // Jika registrasi berhasil, tampilkan halaman konfirmasi
+  if (registrationSuccess) {
+    return (
+      <div className="min-h-screen bg-white flex">
+        {/* Logo - Top Left */}
+        <div className="absolute flex items-center top-8 left-8 group cursor-pointer space-x-1">
+          <GiPortal
+            className="text-gray-900 group-hover:text-blue-600 transition-colors duration-300"
+            size={22}
+          />
+          <p className="text-xl font-semibold tracking-tight text-nowrap text-gray-900 group-hover:text-blue-600 transition-colors duration-300">
+            Portal Dokumen
+          </p>
+        </div>
+
+        {/* Verification Message */}
+        <div className="w-full flex items-center justify-center px-8 py-12">
+          <div className="w-full max-w-md text-center">
+            <div className="mb-8">
+              <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                <MdMarkEmailRead className="w-8 h-8 text-green-600" />
+              </div>
+              <h1 className="text-3xl font-semibold text-slate-900 mb-3">
+                Periksa Email Anda
+              </h1>
+              <p className="text-slate-500 text-base leading-relaxed">
+                Kami telah mengirimkan link verifikasi ke{" "}
+                <span className="font-medium text-slate-700">
+                  {formData.email}
+                </span>
+              </p>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-100 rounded-xl p-6 mb-6">
+              <h3 className="font-medium text-blue-900 mb-2">
+                Langkah selanjutnya:
+              </h3>
+              <ol className="text-sm text-blue-700 space-y-1 text-left">
+                <li>1. Buka email Anda</li>
+                <li>2. Cari email dari Portal Dokumen</li>
+                <li>3. Klik link verifikasi di email</li>
+                <li>4. Login ke akun Anda</li>
+              </ol>
+            </div>
+
+            {/* Spam Protection Info */}
+            {(resendCooldown > 0 || resendAttempts > 0 || isBlocked) && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+                <div className="text-sm text-amber-800">
+                  {isBlocked ? (
+                    <p>
+                      <span className="font-medium">Batas terlampaui:</span>{" "}
+                      Anda telah mencoba mengirim email terlalu sering. Silakan
+                      tunggu 1 jam sebelum mencoba lagi.
+                    </p>
+                  ) : resendCooldown > 0 ? (
+                    <p>
+                      <span className="font-medium">Tunggu sejenak:</span> Anda
+                      dapat mengirim ulang dalam{" "}
+                      {formatCooldownTime(resendCooldown)}
+                    </p>
+                  ) : (
+                    resendAttempts > 0 && (
+                      <p>
+                        <span className="font-medium">Percobaan:</span>{" "}
+                        {resendAttempts}/{MAX_ATTEMPTS_PER_HOUR} kali dalam 1
+                        jam terakhir
+                      </p>
+                    )
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <button
+                onClick={handleResendVerification}
+                disabled={isResendLoading || resendCooldown > 0 || isBlocked}
+                className={`w-full h-12 rounded-xl font-medium transition-colors duration-200 ${
+                  isResendLoading || resendCooldown > 0 || isBlocked
+                    ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                    : "bg-slate-900 text-white hover:bg-slate-800"
+                }`}
+              >
+                {isResendLoading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                    Mengirim...
+                  </div>
+                ) : resendCooldown > 0 ? (
+                  `Kirim Ulang (${formatCooldownTime(resendCooldown)})`
+                ) : isBlocked ? (
+                  "Terlalu Banyak Percobaan"
+                ) : (
+                  "Kirim Ulang Email"
+                )}
+              </button>
+
+              <Link
+                href="/login"
+                className="w-full h-12 border border-slate-300 text-slate-700 rounded-xl font-medium hover:bg-slate-50 transition-colors duration-200 flex items-center justify-center"
+              >
+                Kembali ke Login
+              </Link>
+            </div>
+
+            <p className="text-xs text-slate-500 mt-6">
+              Tidak menerima email? Periksa folder spam atau coba kirim ulang
+              setelah beberapa saat.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white flex">

@@ -37,6 +37,10 @@ export const authOptions = {
           return null;
         }
 
+        if (!user.email_verified) {
+          throw new Error("Verification");
+        }
+
         const passwordCorrect = await bcrypt.compare(
           credentials.password,
           user.password
@@ -51,6 +55,7 @@ export const authOptions = {
           name: user.nama,
           email: user.email,
           username: user.username,
+          emailVerified: user.email_verified,
           maxAge: credentials.maxAge
             ? parseInt(credentials.maxAge)
             : 24 * 60 * 60,
@@ -69,6 +74,7 @@ export const authOptions = {
         token.name = user.name;
         token.email = user.email;
         token.username = user.username;
+        token.emailVerified = user.emailVerified;
         token.maxAge = user.maxAge;
       }
 
@@ -79,6 +85,7 @@ export const authOptions = {
       session.user.id = token.id;
       session.user.name = token.name;
       session.user.username = token.username;
+      session.user.emailVerified = token.emailVerified;
       session.user.provider = token.provider;
 
       if (token.maxAge) {
@@ -91,16 +98,17 @@ export const authOptions = {
 
   pages: {
     signIn: "/login",
+    error: "/login",
   },
 
   // Debugging
-
   // events: {
   //   async signIn({ user, account, profile }) {
   //     console.log("User signed in:", {
   //       id: user.id,
   //       email: user.email,
   //       provider: account.provider,
+  //       emailVerified: user.emailVerified, // ✅ TAMBAHAN: Log verification status
   //     });
   //   },
   //   async signOut({ session, token }) {

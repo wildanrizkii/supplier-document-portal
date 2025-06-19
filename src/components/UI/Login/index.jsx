@@ -13,9 +13,23 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isResendLoading, setIsResendLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [showResendVerification, setShowResendVerification] = useState(false);
+  const [unverifiedEmail, setUnverifiedEmail] = useState("");
+
+  // Spam protection states
+  const [lastResendTime, setLastResendTime] = useState(null);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendAttempts, setResendAttempts] = useState(0);
+  const [isBlocked, setIsBlocked] = useState(false);
 
   const router = useRouter();
+
+  // Constants for spam protection
+  const COOLDOWN_DURATION = 60; // 60 seconds between resends
+  const MAX_ATTEMPTS_PER_HOUR = 3; // Maximum 3 attempts per hour
+  const BLOCK_DURATION = 3600; // 1 hour block after exceeding limits
 
   // Load saved credentials on component mount
   useEffect(() => {
@@ -28,6 +42,91 @@ const Login = () => {
     }
   }, []);
 
+  // Cooldown timer effect
+  useEffect(() => {
+    let interval;
+    if (resendCooldown > 0) {
+      interval = setInterval(() => {
+        setResendCooldown((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [resendCooldown]);
+
+  // Check if user is currently blocked for resend verification and restore timer state
+  useEffect(() => {
+    const checkBlockAndTimerStatus = () => {
+      if (!unverifiedEmail) return;
+
+      const now = Date.now();
+
+      // Check block status
+      const blockData = localStorage.getItem(`resend_block_${unverifiedEmail}`);
+      if (blockData) {
+        const { blockTime, attempts } = JSON.parse(blockData);
+
+        if (now - blockTime < BLOCK_DURATION * 1000) {
+          setIsBlocked(true);
+          setResendAttempts(attempts);
+        } else {
+          // Block expired, reset
+          localStorage.removeItem(`resend_block_${unverifiedEmail}`);
+          setIsBlocked(false);
+          setResendAttempts(0);
+        }
+      }
+
+      // Restore cooldown timer state
+      const timerData = localStorage.getItem(`resend_timer_${unverifiedEmail}`);
+      if (timerData) {
+        const { lastResendTime: storedLastResendTime } = JSON.parse(timerData);
+        const timeSinceLastResend = now - storedLastResendTime;
+
+        if (timeSinceLastResend < COOLDOWN_DURATION * 1000) {
+          const remainingCooldown = Math.ceil(
+            (COOLDOWN_DURATION * 1000 - timeSinceLastResend) / 1000
+          );
+          setLastResendTime(storedLastResendTime);
+          setResendCooldown(remainingCooldown);
+        } else {
+          // Cooldown expired, clean up
+          localStorage.removeItem(`resend_timer_${unverifiedEmail}`);
+          setLastResendTime(null);
+          setResendCooldown(0);
+        }
+      }
+
+      // Update attempts count from localStorage
+      const attemptData = localStorage.getItem(
+        `resend_attempts_${unverifiedEmail}`
+      );
+      if (attemptData) {
+        const attempts = JSON.parse(attemptData).filter(
+          (timestamp) => now - timestamp < 3600000 // Filter attempts within last hour
+        );
+        setResendAttempts(attempts.length);
+
+        // Update localStorage with filtered attempts
+        if (attempts.length !== JSON.parse(attemptData).length) {
+          localStorage.setItem(
+            `resend_attempts_${unverifiedEmail}`,
+            JSON.stringify(attempts)
+          );
+        }
+      }
+    };
+
+    if (unverifiedEmail) {
+      checkBlockAndTimerStatus();
+    }
+  }, [unverifiedEmail]);
+
   // Save or clear credentials based on remember me setting
   const handleRememberMe = (email, remember) => {
     if (remember) {
@@ -39,14 +138,107 @@ const Login = () => {
     }
   };
 
+  // Check spam protection before allowing resend
+  const checkSpamProtection = () => {
+    const now = Date.now();
+    const email = unverifiedEmail;
+
+    // Check if user is currently blocked
+    if (isBlocked) {
+      const blockData = localStorage.getItem(`resend_block_${email}`);
+      if (blockData) {
+        const { blockTime } = JSON.parse(blockData);
+        const remainingTime = Math.ceil(
+          (BLOCK_DURATION * 1000 - (now - blockTime)) / 1000 / 60
+        );
+        return {
+          allowed: false,
+          error: `Anda telah melebihi batas pengiriman email. Coba lagi dalam ${remainingTime} menit.`,
+        };
+      }
+    }
+
+    // Check cooldown period
+    if (lastResendTime && now - lastResendTime < COOLDOWN_DURATION * 1000) {
+      const remainingTime = Math.ceil(
+        (COOLDOWN_DURATION * 1000 - (now - lastResendTime)) / 1000
+      );
+      return {
+        allowed: false,
+        error: `Mohon tunggu ${remainingTime} detik sebelum mengirim ulang.`,
+      };
+    }
+
+    // Check hourly limits
+    const attemptData = localStorage.getItem(`resend_attempts_${email}`);
+    let attempts = [];
+
+    if (attemptData) {
+      attempts = JSON.parse(attemptData).filter(
+        (timestamp) => now - timestamp < 3600000 // Filter attempts within last hour
+      );
+    }
+
+    if (attempts.length >= MAX_ATTEMPTS_PER_HOUR) {
+      // Block user for 1 hour
+      localStorage.setItem(
+        `resend_block_${email}`,
+        JSON.stringify({
+          blockTime: now,
+          attempts: attempts.length + 1,
+        })
+      );
+
+      setIsBlocked(true);
+      setResendAttempts(attempts.length + 1);
+
+      return {
+        allowed: false,
+        error: `Anda telah melebihi batas ${MAX_ATTEMPTS_PER_HOUR} kali pengiriman per jam. Coba lagi dalam 1 jam.`,
+      };
+    }
+
+    return { allowed: true };
+  };
+
+  // Record resend attempt with persistent timer storage
+  const recordResendAttempt = () => {
+    const now = Date.now();
+    const email = unverifiedEmail;
+
+    // Record this attempt
+    const attemptData = localStorage.getItem(`resend_attempts_${email}`);
+    let attempts = attemptData ? JSON.parse(attemptData) : [];
+
+    // Add current attempt and filter out old ones
+    attempts.push(now);
+    attempts = attempts.filter((timestamp) => now - timestamp < 3600000);
+
+    localStorage.setItem(`resend_attempts_${email}`, JSON.stringify(attempts));
+
+    // Store timer state in localStorage for persistence across refreshes
+    localStorage.setItem(
+      `resend_timer_${email}`,
+      JSON.stringify({
+        lastResendTime: now,
+      })
+    );
+
+    // Update state
+    setLastResendTime(now);
+    setResendCooldown(COOLDOWN_DURATION);
+    setResendAttempts(attempts.length);
+  };
+
   const handleSubmit = async () => {
     try {
       setIsLoading(true);
       setError("");
+      setShowResendVerification(false);
 
       // Basic validation
       if (!email || !password) {
-        const errorMessage = "Tolong isi email dan password terlebih dahulu!";
+        const errorMessage = "Mohon isi email dan kata sandi terlebih dahulu!";
         setError(errorMessage);
         toast.error(errorMessage);
         setIsLoading(false);
@@ -54,8 +246,7 @@ const Login = () => {
       }
 
       if (email.length < 4 || password.length < 4) {
-        const errorMessage =
-          "Email and password must be at least 4 characters!";
+        const errorMessage = "Email dan kata sandi harus minimal 4 karakter!";
         setError(errorMessage);
         toast.error(errorMessage);
         setIsLoading(false);
@@ -65,12 +256,15 @@ const Login = () => {
       // Email format validation
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
-        const errorMessage = "Invalid email format!";
+        const errorMessage = "Format email tidak valid!";
         setError(errorMessage);
         toast.error(errorMessage);
         setIsLoading(false);
         return;
       }
+
+      // Email verification akan dicek di NextAuth authorize function
+      // Jika email belum diverifikasi, NextAuth akan return error "Verification"
 
       // Configure session duration based on remember me
       const maxAge = rememberMe ? 30 * 24 * 60 * 60 : 24 * 60 * 60; // 30 days vs 1 day
@@ -80,30 +274,37 @@ const Login = () => {
         password: password,
         maxAge: maxAge.toString(),
         redirect: false,
-        callbackUrl: "/",
+        callbackUrl: "/dashboard",
       });
 
       if (response?.error) {
-        let errorMessage = "An error occurred during login!";
+        let errorMessage = "Terjadi kesalahan saat login!";
 
         switch (response.error) {
           case "CredentialsSignin":
-            errorMessage = "The email or password you entered is incorrect!";
+            errorMessage = "Email atau kata sandi yang Anda masukkan salah!";
             break;
           case "Configuration":
-            errorMessage = "System configuration error occurred!";
+            errorMessage = "Terjadi kesalahan konfigurasi sistem!";
             break;
           case "AccessDenied":
-            errorMessage = "Access denied! Contact administrator.";
+            errorMessage = "Akses ditolak! Hubungi administrator.";
             break;
           case "Verification":
-            errorMessage = "Your email has not been verified!";
+            errorMessage = "Email Anda belum diverifikasi!";
+            setShowResendVerification(true);
+            setUnverifiedEmail(email);
+            // Reset spam protection states when showing verification for new email
+            setLastResendTime(null);
+            setResendCooldown(0);
+            setResendAttempts(0);
+            setIsBlocked(false);
             break;
           default:
             if (response.error.includes("fetch")) {
-              errorMessage = "Connection problem! Check your internet.";
+              errorMessage = "Masalah koneksi! Periksa internet Anda.";
             } else if (response.error.includes("timeout")) {
-              errorMessage = "Connection timeout! Try again.";
+              errorMessage = "Koneksi timeout! Coba lagi.";
             }
         }
 
@@ -119,7 +320,7 @@ const Login = () => {
         // Success - handle remember me
         handleRememberMe(email, rememberMe);
 
-        toast.success("Login successful!");
+        toast.success("Login berhasil!");
 
         // Clear password but keep email if remembering
         setPassword("");
@@ -129,7 +330,7 @@ const Login = () => {
 
         router.push("/dashboard");
       } else {
-        const errorMessage = "Unknown response from server!";
+        const errorMessage = "Respons tidak dikenal dari server!";
         setError(errorMessage);
         toast.error(errorMessage);
         setIsLoading(false);
@@ -137,13 +338,13 @@ const Login = () => {
     } catch (error) {
       console.error("Error during login:", error);
 
-      let errorMessage = "An unexpected error occurred!";
+      let errorMessage = "Terjadi kesalahan yang tidak terduga!";
 
       if (error.name === "TypeError" && error.message.includes("fetch")) {
         errorMessage =
-          "Cannot connect to server! Check your internet connection.";
+          "Tidak dapat terhubung ke server! Periksa koneksi internet Anda.";
       } else if (error.name === "AbortError") {
-        errorMessage = "Request was cancelled! Try again.";
+        errorMessage = "Permintaan dibatalkan! Coba lagi.";
       } else if (error.message) {
         errorMessage = `Error: ${error.message}`;
       }
@@ -152,6 +353,45 @@ const Login = () => {
       toast.error(errorMessage);
       setIsLoading(false);
     }
+  };
+
+  const handleResendVerification = async () => {
+    // Check spam protection
+    const spamCheck = checkSpamProtection();
+    if (!spamCheck.allowed) {
+      toast.error(spamCheck.error);
+      return;
+    }
+
+    setIsResendLoading(true);
+
+    try {
+      const response = await fetch("/api/resend-verification", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: unverifiedEmail,
+        }),
+      });
+
+      if (response.ok) {
+        // Record the attempt
+        recordResendAttempt();
+        toast.success("Email verifikasi telah dikirim ulang!");
+      } else {
+        const errorData = await response.json();
+        toast.error(
+          errorData.message || "Gagal mengirim ulang email verifikasi!"
+        );
+      }
+    } catch (error) {
+      console.error("Resend verification error:", error);
+      toast.error("Terjadi kesalahan!");
+    }
+
+    setIsResendLoading(false);
   };
 
   const handleKeyPress = (e) => {
@@ -167,12 +407,28 @@ const Login = () => {
   // Clear error when user starts typing
   const handleEmailChange = (e) => {
     setEmail(e.target.value);
-    if (error) setError("");
+    if (error) {
+      setError("");
+      setShowResendVerification(false);
+      setUnverifiedEmail("");
+      // Reset spam protection when changing email
+      setLastResendTime(null);
+      setResendCooldown(0);
+      setResendAttempts(0);
+      setIsBlocked(false);
+      // Clean up localStorage for old email if exists
+      if (unverifiedEmail) {
+        localStorage.removeItem(`resend_timer_${unverifiedEmail}`);
+      }
+    }
   };
 
   const handlePasswordChange = (e) => {
     setPassword(e.target.value);
-    if (error) setError("");
+    if (error) {
+      setError("");
+      setShowResendVerification(false);
+    }
   };
 
   // Handle remember me toggle
@@ -184,6 +440,16 @@ const Login = () => {
     if (!newRememberMe) {
       handleRememberMe("", false);
     }
+  };
+
+  // Format remaining cooldown time
+  const formatCooldownTime = (seconds) => {
+    if (seconds >= 60) {
+      const minutes = Math.floor(seconds / 60);
+      const remainingSeconds = seconds % 60;
+      return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
+    }
+    return `${seconds}s`;
   };
 
   return (
@@ -205,10 +471,10 @@ const Login = () => {
           {/* Header */}
           <div className="text-center mb-12">
             <h1 className="text-3xl font-semibold text-slate-900 mb-3">
-              Sign in
+              Masuk
             </h1>
             <p className="text-slate-500 text-base leading-relaxed">
-              Selamat datang kembali di Portal Dokumen CMW
+              Selamat datang kembali di Portal Dokumen
             </p>
           </div>
 
@@ -252,7 +518,7 @@ const Login = () => {
                       ? "border-red-300 focus:ring-red-500"
                       : "border-slate-200 hover:border-slate-300"
                   }`}
-                  placeholder="Masukkan sandi Anda"
+                  placeholder="Masukkan kata sandi Anda"
                   required
                 />
                 <button
@@ -302,12 +568,87 @@ const Login = () => {
                 </div>
                 <span className="ml-2 text-sm text-slate-600">Ingat saya</span>
               </label>
+
+              <Link
+                href="/forgot-password"
+                className="text-sm text-slate-900 hover:text-blue-600 transition-colors duration-200"
+              >
+                Lupa kata sandi?
+              </Link>
             </div>
 
-            {/* Error Message */}
+            {/* Error Message and Resend Verification */}
             {error && (
-              <div className="p-4 bg-red-50 border border-red-100 rounded-xl">
-                <p className="text-red-600 text-sm">{error}</p>
+              <div className="space-y-3">
+                <div className="p-4 bg-red-50 border border-red-100 rounded-xl">
+                  <p className="text-red-600 text-sm">{error}</p>
+                </div>
+
+                {showResendVerification && (
+                  <div className="space-y-3">
+                    {/* Spam Protection Info */}
+                    {(resendCooldown > 0 ||
+                      resendAttempts > 0 ||
+                      isBlocked) && (
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                        <div className="text-xs text-amber-800">
+                          {isBlocked ? (
+                            <p>
+                              <span className="font-medium">
+                                Batas terlampaui:
+                              </span>{" "}
+                              Tunggu 1 jam sebelum mencoba lagi.
+                            </p>
+                          ) : resendCooldown > 0 ? (
+                            <p>
+                              <span className="font-medium">Tunggu:</span>{" "}
+                              {formatCooldownTime(resendCooldown)} sebelum kirim
+                              ulang
+                            </p>
+                          ) : (
+                            resendAttempts > 0 && (
+                              <p>
+                                <span className="font-medium">Percobaan:</span>{" "}
+                                {resendAttempts}/{MAX_ATTEMPTS_PER_HOUR} kali
+                                dalam 1 jam
+                              </p>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="p-4 bg-purple-50 border border-purple-100 rounded-xl">
+                      <p className="text-purple-700 text-sm mb-3">
+                        Belum menerima email verifikasi?
+                      </p>
+                      <button
+                        onClick={handleResendVerification}
+                        disabled={
+                          isResendLoading || resendCooldown > 0 || isBlocked
+                        }
+                        className={`w-full h-10 rounded-lg font-medium transition-colors duration-200 ${
+                          isResendLoading || resendCooldown > 0 || isBlocked
+                            ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                            : "bg-purple-600 text-white hover:bg-purple-700"
+                        }`}
+                      >
+                        {isResendLoading ? (
+                          <div className="flex items-center justify-center">
+                            <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                            Mengirim...
+                          </div>
+                        ) : resendCooldown > 0 ? (
+                          `Kirim Ulang (${formatCooldownTime(resendCooldown)})`
+                        ) : isBlocked ? (
+                          "Terlalu Banyak Percobaan"
+                        ) : (
+                          "Kirim Ulang Email Verifikasi"
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -325,14 +666,14 @@ const Login = () => {
               {isLoading ? (
                 <div className="flex items-center justify-center">
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                  Signing in...
+                  Masuk...
                 </div>
               ) : (
-                "Sign in"
+                "Masuk"
               )}
             </button>
 
-            {/* Sign In Link */}
+            {/* Register Link */}
             <div className="text-center pt-4">
               <p className="text-sm text-slate-600">
                 Belum memiliki akun?{" "}
@@ -340,7 +681,7 @@ const Login = () => {
                   href="/register"
                   className="text-slate-900 font-medium hover:text-blue-600 transition-colors duration-200"
                 >
-                  Register
+                  Daftar
                 </Link>
               </p>
             </div>

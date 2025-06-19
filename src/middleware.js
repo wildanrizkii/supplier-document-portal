@@ -8,7 +8,10 @@ export async function middleware(req) {
   const { pathname } = req.nextUrl;
 
   const isPublicPath =
-    pathname === "/" || pathname === "/login" || pathname === "/register";
+    pathname === "/" ||
+    pathname === "/login" ||
+    pathname === "/register" ||
+    pathname === "/verify-email";
 
   // Jika belum login dan bukan halaman publik, redirect ke /login
   if (!token && !isPublicPath) {
