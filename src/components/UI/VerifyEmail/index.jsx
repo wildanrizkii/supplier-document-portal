@@ -1,13 +1,14 @@
 // app/verify-email/page.js
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { GiPortal } from "react-icons/gi";
 import { MdCheckCircle, MdError, MdHourglassEmpty } from "react-icons/md";
 import Link from "next/link";
 import toast from "react-hot-toast";
 
-const VerifyEmailPage = () => {
+// Create a separate component that uses useSearchParams
+const VerifyEmailContent = () => {
   const [status, setStatus] = useState("loading"); // loading, success, error
   const [message, setMessage] = useState("");
   const [userData, setUserData] = useState(null);
@@ -199,6 +200,30 @@ const VerifyEmailPage = () => {
   };
 
   return (
+    <div className="w-full flex items-center justify-center px-8 py-12">
+      <div className="w-full max-w-md">{renderContent()}</div>
+    </div>
+  );
+};
+
+// Loading component for Suspense fallback
+const VerifyEmailLoading = () => (
+  <div className="w-full flex items-center justify-center px-8 py-12">
+    <div className="w-full max-w-md text-center">
+      <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+        <MdHourglassEmpty className="w-8 h-8 text-blue-600 animate-spin" />
+      </div>
+      <h1 className="text-3xl font-semibold text-slate-900 mb-3">Memuat...</h1>
+      <p className="text-slate-500 text-base leading-relaxed">
+        Mohon tunggu sebentar.
+      </p>
+    </div>
+  </div>
+);
+
+// Main page component
+const VerifyEmailPage = () => {
+  return (
     <div className="min-h-screen bg-white flex">
       {/* Logo - Top Left */}
       <div className="absolute flex items-center top-8 left-8 group cursor-pointer space-x-1">
@@ -211,10 +236,10 @@ const VerifyEmailPage = () => {
         </p>
       </div>
 
-      {/* Main Content */}
-      <div className="w-full flex items-center justify-center px-8 py-12">
-        <div className="w-full max-w-md">{renderContent()}</div>
-      </div>
+      {/* Main Content wrapped in Suspense */}
+      <Suspense fallback={<VerifyEmailLoading />}>
+        <VerifyEmailContent />
+      </Suspense>
     </div>
   );
 };
