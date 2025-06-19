@@ -103,7 +103,7 @@ const LandingPageHeader = () => {
 
         {/* Mobile Menu Dropdown */}
         <div
-          className={`md:hidden absolute top-full left-0 right-0 bg-white rounded-b-2xl backdrop-blur-md border-b border-gray-200 shadow-lg transition-all duration-300 ease-in-out z-50 ${
+          className={`md:hidden absolute top-full left-0 right-0 bg-white rounded-b-3xl backdrop-blur-md border-b border-gray-200 shadow-lg transition-all duration-300 ease-in-out z-50 ${
             isMobileMenuOpen
               ? "opacity-100 translate-y-0 visible"
               : "opacity-0 -translate-y-4 invisible"
@@ -130,13 +130,13 @@ const LandingPageHeader = () => {
             {/* Mobile Auth Buttons */}
             <div className="flex flex-col space-y-3 pt-4 border-t border-gray-200">
               <button
-                className="w-full text-center py-3 px-6 text-lg font-medium text-gray-700 hover:text-gray-900 transition-all duration-300 rounded-lg hover:bg-gray-50 cursor-pointer"
+                className="w-full text-center py-3 px-6 text-lg font-medium text-gray-700 hover:text-gray-900 transition-all duration-300 rounded-full hover:bg-gray-50 cursor-pointer"
                 onClick={() => router.push("/login")}
               >
                 Login
               </button>
               <button
-                className="w-full py-3 px-6 bg-zinc-900 hover:bg-zinc-800 text-white text-lg font-medium rounded-lg transition-all duration-300 transform hover:scale-105 cursor-pointer"
+                className="w-full py-3 px-6 bg-zinc-900 hover:bg-zinc-800 text-white text-lg font-medium rounded-full transition-all duration-300 transform hover:scale-105 cursor-pointer"
                 onClick={() => router.push("/register")}
               >
                 Register

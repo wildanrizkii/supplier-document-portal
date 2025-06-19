@@ -7,7 +7,8 @@ export async function middleware(req) {
   const token = await getToken({ req, secret });
   const { pathname } = req.nextUrl;
 
-  const isPublicPath = pathname === "/" || pathname === "/login";
+  const isPublicPath =
+    pathname === "/" || pathname === "/login" || pathname === "/register";
 
   // Jika belum login dan bukan halaman publik, redirect ke /login
   if (!token && !isPublicPath) {

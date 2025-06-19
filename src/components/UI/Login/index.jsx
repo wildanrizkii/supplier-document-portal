@@ -1,9 +1,11 @@
 "use client";
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { MdEmail, MdLock, MdVisibility, MdVisibilityOff } from "react-icons/md";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
+import { GiPortal } from "react-icons/gi";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -44,7 +46,7 @@ const Login = () => {
 
       // Basic validation
       if (!email || !password) {
-        const errorMessage = "Please fill in email and password!";
+        const errorMessage = "Tolong isi email dan password terlebih dahulu!";
         setError(errorMessage);
         toast.error(errorMessage);
         setIsLoading(false);
@@ -187,15 +189,14 @@ const Login = () => {
   return (
     <div className="min-h-screen bg-white flex">
       {/* Logo - Top Left */}
-      <div className="absolute top-8 left-8 z-10">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center">
-            <span className="text-white font-bold text-base">BD</span>
-          </div>
-          <span className="text-slate-900 font-semibold text-xl">
-            Breakdown Drawings
-          </span>
-        </div>
+      <div className="absolute flex items-center top-8 left-8 group cursor-pointer space-x-1">
+        <GiPortal
+          className="text-gray-900 group-hover:text-blue-600 transition-colors duration-300"
+          size={22}
+        />
+        <p className="text-xl font-semibold tracking-tight text-nowrap text-gray-900 group-hover:text-blue-600 transition-colors duration-300">
+          Portal Dokumen
+        </p>
       </div>
 
       {/* Main Content */}
@@ -207,7 +208,7 @@ const Login = () => {
               Sign in
             </h1>
             <p className="text-slate-500 text-base leading-relaxed">
-              Welcome back to your inventory management system
+              Selamat datang kembali di Portal Dokumen CMW
             </p>
           </div>
 
@@ -216,7 +217,7 @@ const Login = () => {
             {/* Email Field */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-3">
-                Email address
+                Alamat Email
               </label>
               <input
                 id="email"
@@ -229,7 +230,7 @@ const Login = () => {
                     ? "border-red-300 focus:ring-red-500"
                     : "border-slate-200 hover:border-slate-300"
                 }`}
-                placeholder="Enter your email"
+                placeholder="Masukkan email Anda"
                 required
               />
             </div>
@@ -237,7 +238,7 @@ const Login = () => {
             {/* Password Field */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-3">
-                Password
+                Kata Sandi
               </label>
               <div className="relative">
                 <input
@@ -251,7 +252,7 @@ const Login = () => {
                       ? "border-red-300 focus:ring-red-500"
                       : "border-slate-200 hover:border-slate-300"
                   }`}
-                  placeholder="Enter your password"
+                  placeholder="Masukkan sandi Anda"
                   required
                 />
                 <button
@@ -299,7 +300,7 @@ const Login = () => {
                     </svg>
                   )}
                 </div>
-                <span className="ml-2 text-sm text-slate-600">Remember me</span>
+                <span className="ml-2 text-sm text-slate-600">Ingat saya</span>
               </label>
             </div>
 
@@ -330,6 +331,19 @@ const Login = () => {
                 "Sign in"
               )}
             </button>
+
+            {/* Sign In Link */}
+            <div className="text-center pt-4">
+              <p className="text-sm text-slate-600">
+                Belum memiliki akun?{" "}
+                <Link
+                  href="/register"
+                  className="text-slate-900 font-medium hover:text-blue-600 transition-colors duration-200"
+                >
+                  Register
+                </Link>
+              </p>
+            </div>
           </div>
         </div>
       </div>
