@@ -574,7 +574,7 @@ const Login = () => {
 
               <Link
                 href="/forgot-password"
-                className="text-sm text-slate-900 hover:text-blue-600 transition-colors duration-200"
+                className="text-sm text-slate-900 hover:text-black transition-colors duration-200"
               >
                 Lupa kata sandi?
               </Link>
