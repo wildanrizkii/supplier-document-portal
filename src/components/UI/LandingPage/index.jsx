@@ -150,19 +150,10 @@ const LandingPage = () => {
             >
               <h1 className="text-4xl md:text-6xl font-medium leading-tight mb-8 text-gray-900 tracking-tight">
                 <span className="inline-block hover:scale-105 transition-transform duration-300 cursor-default">
-                  Selamat
+                  Selamat datang di
                 </span>{" "}
                 <span className="inline-block hover:scale-105 transition-transform duration-300 cursor-default">
-                  datang
-                </span>{" "}
-                <span className="inline-block hover:scale-105 transition-transform duration-300 cursor-default">
-                  di
-                </span>{" "}
-                <span className="inline-block hover:scale-105 transition-transform duration-300 cursor-default">
-                  Portal
-                </span>{" "}
-                <span className="inline-block hover:scale-105 transition-transform duration-300 cursor-default">
-                  Dokumen
+                  Portal Dokumen
                 </span>{" "}
                 <span className="inline-block text-transparent bg-gradient-to-r from-blue-600 via-purple-600 to-blue-400 bg-clip-text font-bold hover:scale-105 transition-transform duration-300 cursor-default pr-1">
                   CMW
@@ -190,7 +181,7 @@ const LandingPage = () => {
                     color: "text-purple-600",
                   },
                 ].map((stat, index) => (
-                  <div key={index} className="text-center group cursor-pointer">
+                  <div key={index} className="text-center group">
                     <div
                       className={`font-light text-xl sm:text-2xl text-gray-900 group-hover:${stat.color} transition-all duration-300 transform group-hover:scale-110`}
                     >
@@ -204,7 +195,7 @@ const LandingPage = () => {
               </div>
 
               {/* Location with Animation */}
-              <div className="flex items-center justify-center mb-12 text-gray-700 hover:text-blue-600 transition-colors duration-300 cursor-pointer group">
+              <div className="flex items-center justify-center mb-12 text-gray-700 hover:text-blue-600 transition-colors duration-300 group">
                 <svg
                   className="w-4 h-4 mr-1 group-hover:animate-pulse"
                   fill="currentColor"
@@ -343,7 +334,7 @@ const LandingPage = () => {
             {features.map((feature, index) => (
               <div
                 key={index}
-                className={`text-center p-8 bg-white rounded-2xl shadow-lg border border-gray-100 transition-all duration-500 transform hover:-translate-y-2 hover:shadow-2xl cursor-pointer group ${
+                className={`text-center p-8 bg-white rounded-2xl shadow-lg border border-gray-100 transition-all duration-500 transform hover:-translate-y-2 hover:shadow-2xl group ${
                   activeFeature === index
                     ? "ring-2 ring-blue-500 shadow-blue-100"
                     : ""
