@@ -609,9 +609,12 @@ const Register = () => {
   }
 
   return (
-    <div className="min-h-screen bg-white flex">
+    <div className="min-h-screen bg-white flex flex-col justify-center items-center space-y-10 py-12">
       {/* Logo - Top Left */}
-      <div className="absolute flex items-center top-8 left-8 group cursor-pointer space-x-1">
+      <div
+        className="flex items-center group cursor-pointer space-x-1"
+        onClick={() => router.push("/")}
+      >
         <GiPortal
           className="text-gray-900 group-hover:text-blue-600 transition-colors duration-300"
           size={22}
@@ -622,7 +625,7 @@ const Register = () => {
       </div>
 
       {/* Main Content */}
-      <div className="w-full flex items-center justify-center px-8 py-12">
+      <div className="w-full flex items-center justify-center px-8">
         <div className="w-full max-w-sm">
           {/* Header */}
           <div className="text-center mb-10">

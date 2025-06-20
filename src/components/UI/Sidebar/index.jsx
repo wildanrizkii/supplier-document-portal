@@ -17,12 +17,13 @@ import { FiInfo } from "react-icons/fi";
 import { AiOutlineDatabase } from "react-icons/ai";
 import { LiaDatabaseSolid } from "react-icons/lia";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 // Constants untuk menu navigasi
 const NAVIGATION_ITEMS = [
   {
     name: "Dashboard",
-    href: "/",
+    href: "/dashboard",
     subpaths: ["/"],
     icon: <RiDashboardLine size={22} />,
     roles: ["Admin"],
@@ -110,6 +111,7 @@ const Sidebar = ({
   const [popupPosition, setPopupPosition] = useState({ top: 0, left: 0 });
   const hoverTimeoutRef = useRef(null);
   const menuRefs = useRef({});
+  const router = useRouter();
 
   const { data: session } = useSession();
 
@@ -392,7 +394,10 @@ const Sidebar = ({
         }`}
       >
         {/* Header / Logo */}
-        <div className="flex items-center justify-center h-16 px-4 pt-8">
+        <div
+          className="flex items-center justify-center h-16 px-4 pt-8 cursor-pointer"
+          onClick={() => router.push("/")}
+        >
           <Image
             src="/images/logo.png"
             alt="Logo"
@@ -433,7 +438,10 @@ const Sidebar = ({
           {/* Header/Logo Section */}
           <div className="flex items-center justify-center h-16 px-3 flex-shrink-0 bg-white">
             {isCollapsed ? (
-              <div className="w-fit h-fit flex items-center justify-center">
+              <div
+                className="w-fit h-fit flex items-center justify-center cursor-pointer"
+                onClick={() => router.push("/")}
+              >
                 <Image
                   src="/images/logo.png"
                   alt="Logo"
@@ -444,7 +452,10 @@ const Sidebar = ({
               </div>
             ) : (
               <div className="flex items-center pt-6 space-x-2">
-                <div className="w-fit h-fit flex items-center justify-center">
+                <div
+                  className="w-fit h-fit flex items-center justify-center cursor-pointer"
+                  onClick={() => router.push("/")}
+                >
                   <Image
                     src="/images/logo.png"
                     alt="Logo"

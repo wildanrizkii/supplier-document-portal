@@ -11,6 +11,7 @@ const LandingPage = () => {
   const [isVisible, setIsVisible] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [scrollY, setScrollY] = useState(0);
+  const router = useRouter();
 
   // Handle scroll for parallax effects
   useEffect(() => {
@@ -171,7 +172,10 @@ const LandingPage = () => {
 
               {/* Enhanced CTA Buttons */}
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center px-4">
-                <button className="w-full sm:w-auto group px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-gray-900 to-gray-700 hover:from-blue-600 hover:to-purple-600 text-white font-light rounded-full transition-all duration-500 transform hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/25 active:scale-95 cursor-pointer">
+                <button
+                  className="w-full sm:w-auto group px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-gray-900 to-gray-700 hover:from-blue-600 hover:to-purple-600 text-white font-light rounded-full transition-all duration-500 transform hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/25 active:scale-95 cursor-pointer"
+                  onClick={() => router.push("/dashboard")}
+                >
                   <span className="flex items-center justify-center">
                     <svg
                       className="w-6 h-6 mr-2 transition-transform duration-300"
@@ -248,10 +252,17 @@ const LandingPage = () => {
                         href="https://www.cmw.co.id/"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/5 text-white font-medium px-6 py-2.5 rounded-md shadow-md backdrop-blur-sm transition-all duration-300"
+                        onMouseEnter={(e) => {
+                          e.target.style.transform = "translateY(0)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.transform = "translateY(0)";
+                        }}
+                        className="inline-flex items-center gap-2 text-white font-medium px-2 py-2 rounded-md transition-all duration-300"
                       >
                         Kunjungi
                         <VscLinkExternal size={18} />
+                        <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-white to-white transition-all duration-300 group-hover:w-full z-50"></span>
                       </a>
                     </div>
                   </div>

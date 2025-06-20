@@ -17,9 +17,15 @@ const Header = ({ toggleSidebar, toggleCollapse, isCollapsed = true }) => {
   const getBreadcrumbs = () => {
     const pathSegments = pathname.split("/").filter((segment) => segment);
 
-    // Configuration untuk mapping path ke label yang lebih user-friendly
+    // Jika hanya di "/dashboard", maka return langsung 1 item
+    if (
+      pathname === "/dashboard" ||
+      (pathSegments.length === 1 && pathSegments[0] === "dashboard")
+    ) {
+      return [{ label: "Dashboard", href: "/dashboard", isLast: true }];
+    }
+
     const pathLabels = {
-      dashboard: "Dashboard",
       "manage-part": "Manage Part",
       "main-part": "Main Part",
       "part-no-induk": "Part No Induk",
@@ -27,11 +33,12 @@ const Header = ({ toggleSidebar, toggleCollapse, isCollapsed = true }) => {
       laporan: "Laporan",
       settings: "Settings",
       profile: "Profile",
+      about: "About",
     };
 
-    const breadcrumbs = [{ label: "Dashboard", href: "/" }];
-
+    const breadcrumbs = [{ label: "Dashboard", href: "/dashboard" }];
     let currentPath = "";
+
     pathSegments.forEach((segment, index) => {
       currentPath += `/${segment}`;
       const label =
