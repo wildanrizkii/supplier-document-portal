@@ -13,7 +13,24 @@ const LandingPageHeader = () => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const router = useRouter();
   const { data: session, status } = useSession();
-  const navigationItems = ["Dokumen", "Tentang Kami", "FAQ"];
+
+  const navigationItems = [
+    {
+      label: "Cara Upload Dokumen",
+      href: "/tutorial",
+      type: "route",
+    },
+    {
+      label: "Tentang Kami",
+      href: "#about",
+      type: "anchor",
+    },
+    {
+      label: "Pertanyaan",
+      href: "#faq",
+      type: "anchor",
+    },
+  ];
 
   // Prevent body scroll when mobile menu is open
   useEffect(() => {
@@ -58,9 +75,25 @@ const LandingPageHeader = () => {
     return names[0].charAt(0).toUpperCase();
   };
 
+  // Handle navigation click
+  const handleNavClick = (item) => {
+    if (item.type === "route") {
+      router.push(item.href);
+    } else if (item.type === "anchor") {
+      const element = document.querySelector(item.href);
+      if (element) {
+        element.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }
+    }
+    setIsMobileMenuOpen(false);
+  };
+
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-40 bg-white/40 backdrop-blur-md transition-all duration-300">
+      <header className="relative z-40 bg-white/40 backdrop-blur-md transition-all duration-300">
         <div className="max-w-6xl mx-auto px-6 py-4">
           <div className="flex justify-between items-center">
             {/* Logo */}
@@ -77,9 +110,9 @@ const LandingPageHeader = () => {
             {/* Desktop Navigation */}
             <nav className="hidden md:flex items-center space-x-10">
               {navigationItems.map((item, index) => (
-                <a
-                  key={item}
-                  href="#"
+                <button
+                  key={item.label}
+                  onClick={() => handleNavClick(item)}
                   className="relative text-md text-nowrap font-medium text-gray-600 hover:text-gray-900 transition-all duration-300 group"
                   onMouseEnter={(e) => {
                     e.target.style.transform = "translateY(-2px)";
@@ -88,9 +121,9 @@ const LandingPageHeader = () => {
                     e.target.style.transform = "translateY(0)";
                   }}
                 >
-                  {item}
+                  {item.label}
                   <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300 group-hover:w-full"></span>
-                </a>
+                </button>
               ))}
             </nav>
 
@@ -250,17 +283,16 @@ const LandingPageHeader = () => {
             {/* Mobile Navigation */}
             <nav className="space-y-4 mb-6">
               {navigationItems.map((item, index) => (
-                <a
-                  key={item}
-                  href="#"
-                  className="block text-lg text-nowrap font-medium text-gray-600 hover:text-blue-600 transition-all duration-300 py-2 px-4 rounded-lg hover:bg-blue-50 transform hover:scale-105"
-                  onClick={() => setIsMobileMenuOpen(false)}
+                <button
+                  key={item.label}
+                  onClick={() => handleNavClick(item)}
+                  className="block w-full text-left text-lg text-nowrap font-medium text-gray-600 hover:text-blue-600 transition-all duration-300 py-2 px-4 rounded-lg hover:bg-blue-50 transform hover:scale-105"
                   style={{
                     animationDelay: `${index * 100}ms`,
                   }}
                 >
-                  {item}
-                </a>
+                  {item.label}
+                </button>
               ))}
             </nav>
 
