@@ -11,7 +11,9 @@ export async function middleware(req) {
     pathname === "/" ||
     pathname === "/login" ||
     pathname === "/register" ||
-    pathname === "/verify-email";
+    pathname === "/verify-email" ||
+    pathname === "/forgot-password" ||
+    pathname === "/reset-password";
 
   // Jika belum login dan bukan halaman publik, redirect ke /login
   if (!token && !isPublicPath) {
