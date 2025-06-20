@@ -12,12 +12,12 @@ const About = () => {
       <div className="max-w-4xl mx-auto px-6 py-12">
         <div className="text-center mb-16">
           <h1 className="text-5xl font-light text-gray-900 mb-6 tracking-tight">
-            Breakdown Drawings
+            Portal Dokumen CMW
           </h1>
           <div className="w-24 h-0.5 bg-gray-900 mx-auto mb-8"></div>
           <p className="text-xl text-gray-600 font-light leading-relaxed max-w-2xl mx-auto">
-            A precision tool for technical drawings management and component
-            identification
+            A comprehensive document management system with automated expiration
+            notifications and intelligent monitoring
           </p>
         </div>
 
@@ -30,14 +30,15 @@ const About = () => {
                 Overview
               </h2>
               <p className="text-gray-600 leading-relaxed mb-4">
-                Breakdown Drawings enables precise part tagging on technical
-                blueprints with an intuitive, visual interface designed for
-                engineering teams.
+                Portal CMW streamlines document management with intelligent
+                upload capabilities and automated expiration monitoring designed
+                for organizations requiring strict document compliance.
               </p>
               <p className="text-gray-600 leading-relaxed">
-                Seamlessly manage components, maintain comprehensive parts
-                databases, and export data for analysis—all within a clean,
-                efficient workflow.
+                Stay ahead of critical deadlines with automated email
+                notifications, comprehensive document tracking, and seamless
+                file management—all within an intuitive, user-friendly
+                interface.
               </p>
             </section>
 
@@ -47,11 +48,11 @@ const About = () => {
               </h2>
               <div className="space-y-3">
                 {[
-                  "Interactive component tagging",
-                  "Comprehensive parts management",
-                  "Excel export functionality",
-                  "Inventory tracking system",
-                  "Responsive interface design",
+                  "Secure document upload system",
+                  "Automated expiration notifications",
+                  "Email alert management",
+                  "Document tracking & monitoring",
+                  "Responsive dashboard interface",
                 ].map((feature, index) => (
                   <div key={index} className="flex items-center">
                     <div className="w-1 h-1 bg-gray-400 rounded-full mr-4"></div>
@@ -88,9 +89,9 @@ const About = () => {
                 Developer
               </h2>
               <p className="text-gray-600 leading-relaxed mb-6">
-                Crafted as a specialized solution for technical teams requiring
-                precision in breakdown drawings management and component
-                tracking.
+                Developed as a specialized solution for organizations requiring
+                automated document management with proactive expiration
+                monitoring and seamless notification systems.
               </p>
 
               {/* Social Links */}
@@ -148,7 +149,8 @@ const About = () => {
         {/* Quote Section */}
         <div className="text-center pt-10 border-t border-gray-100">
           <blockquote className="text-lg text-gray-500 font-light italic max-w-md mx-auto">
-            "Simplicity is the ultimate sophistication in software design."
+            "Efficiency in document management prevents tomorrow's compliance
+            issues."
           </blockquote>
         </div>
       </div>
