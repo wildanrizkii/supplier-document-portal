@@ -456,11 +456,11 @@ const ForgotPasswordForm = () => {
                     Mengirim...
                   </div>
                 ) : requestCooldown > 0 ? (
-                  `Kirim Reset (${formatCooldownTime(requestCooldown)})`
+                  `Reset Kata Sandi(${formatCooldownTime(requestCooldown)})`
                 ) : isBlocked ? (
                   "Terlalu Banyak Percobaan"
                 ) : (
-                  "Kirim Reset Kata Sandi"
+                  "Reset Kata Sandi"
                 )}
               </button>
 
@@ -472,7 +472,7 @@ const ForgotPasswordForm = () => {
                     href="/login"
                     className="text-slate-900 font-medium hover:text-blue-600 transition-colors duration-200"
                   >
-                    Masuk
+                    Login
                   </Link>
                 </p>
               </div>

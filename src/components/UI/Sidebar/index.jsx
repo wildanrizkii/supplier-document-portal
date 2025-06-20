@@ -3,7 +3,7 @@ import React, { useMemo, useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
-import { RiDashboardLine, RiAdminLine } from "react-icons/ri";
+import { MdOutlineSpaceDashboard } from "react-icons/md";
 import { LuCodesandbox, LuBox } from "react-icons/lu";
 import {
   IoChevronUpOutline,
@@ -25,7 +25,7 @@ const NAVIGATION_ITEMS = [
     name: "Dashboard",
     href: "/dashboard",
     subpaths: ["/"],
-    icon: <RiDashboardLine size={22} />,
+    icon: <MdOutlineSpaceDashboard size={22} />,
     roles: ["Admin"],
   },
   {
