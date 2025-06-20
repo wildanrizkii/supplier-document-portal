@@ -226,8 +226,8 @@ const Profile = () => {
   const doPasswordsMatch = formData.newPassword === formData.confirmPassword;
 
   const tabs = [
-    { id: "profile", label: "Profile", icon: HiOutlineCog6Tooth },
-    { id: "password", label: "Security", icon: HiOutlineShieldCheck },
+    { id: "profile", label: "Umum", icon: HiOutlineCog6Tooth },
+    { id: "password", label: "Keamanan", icon: HiOutlineShieldCheck },
   ];
 
   return (
