@@ -1,6 +1,12 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { FaUser, FaEnvelope, FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
+import { FaUser, FaEnvelope } from "react-icons/fa";
+import {
+  MdLock,
+  MdVisibility,
+  MdVisibilityOff,
+  MdOutlineShield,
+} from "react-icons/md";
 import { HiOutlineCog6Tooth, HiOutlineShieldCheck } from "react-icons/hi2";
 import supabase from "@/app/utils/db";
 import bcryptjs from "bcryptjs";
@@ -57,7 +63,7 @@ const Profile = () => {
       }
     } catch (error) {
       console.error("Error fetching data: ", error);
-      toast.error("Error fetching data: " + error.message);
+      toast.error("Gagal mengambil data: " + error.message);
     }
   };
 
@@ -101,35 +107,35 @@ const Profile = () => {
       formData.confirmPassword;
 
     if (!basicInfoChanged && !passwordFieldsFilled) {
-      toast.error("No changes have been made");
+      toast.error("Tidak ada perubahan yang dibuat");
       return false;
     }
 
     if (passwordFieldsFilled) {
       if (!formData.currentPassword) {
-        toast.error("Current password is required");
+        toast.error("Kata sandi saat ini wajib diisi");
         return false;
       }
       if (!formData.newPassword) {
-        toast.error("New password is required");
+        toast.error("Kata sandi baru wajib diisi");
         return false;
       }
       if (!formData.confirmPassword) {
-        toast.error("Password confirmation is required");
+        toast.error("Konfirmasi kata sandi wajib diisi");
         return false;
       }
       if (formData.newPassword.length < 8) {
-        toast.error("New password must be at least 8 characters");
+        toast.error("Kata sandi baru minimal 8 karakter");
         return false;
       }
       if (formData.newPassword !== formData.confirmPassword) {
-        toast.error("New password and confirmation do not match");
+        toast.error("Kata sandi baru dan konfirmasi tidak cocok");
         return false;
       }
     }
 
     if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
-      toast.error("Invalid email format");
+      toast.error("Format email tidak valid");
       return false;
     }
 
@@ -160,7 +166,7 @@ const Profile = () => {
         if (emailCheckError) throw emailCheckError;
 
         if (existingUser && existingUser.length > 0) {
-          toast.error("Email is already in use by another user");
+          toast.error("Email sudah digunakan oleh pengguna lain");
           return;
         }
 
@@ -175,7 +181,7 @@ const Profile = () => {
         );
 
         if (!isCurrentPasswordValid) {
-          toast.error("Current password is incorrect");
+          toast.error("Kata sandi saat ini salah");
           return;
         }
 
@@ -210,13 +216,11 @@ const Profile = () => {
           confirmPassword: "",
         }));
 
-        toast.success("Profile updated successfully");
+        toast.success("Profil berhasil diperbarui");
       }
     } catch (error) {
       console.error("Error updating profile:", error);
-      toast.error(
-        error.message || "An error occurred while updating the profile"
-      );
+      toast.error(error.message || "Terjadi kesalahan saat memperbarui profil");
     } finally {
       setIsLoading(false);
     }
@@ -227,7 +231,7 @@ const Profile = () => {
 
   const tabs = [
     { id: "profile", label: "Umum", icon: HiOutlineCog6Tooth },
-    { id: "password", label: "Keamanan", icon: HiOutlineShieldCheck },
+    { id: "password", label: "Keamanan", icon: MdOutlineShield },
   ];
 
   return (
@@ -236,10 +240,10 @@ const Profile = () => {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-light text-gray-900 tracking-tight">
-            Account Settings
+            Pengaturan Akun
           </h1>
           <p className="text-gray-500 mt-2 font-light">
-            Manage your profile and security preferences
+            Kelola profil dan preferensi keamanan Anda
           </p>
         </div>
 
@@ -274,14 +278,14 @@ const Profile = () => {
               <div className="space-y-8">
                 <div>
                   <h2 className="text-xl font-light text-gray-900 mb-8">
-                    Profile Information
+                    Informasi Profil
                   </h2>
 
                   <div className="space-y-6">
-                    {/* Full Name */}
+                    {/* Nama Lengkap */}
                     <div className="group">
                       <label className="block text-sm font-medium text-gray-700 mb-3">
-                        Full Name
+                        Nama Lengkap
                       </label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -293,7 +297,7 @@ const Profile = () => {
                           value={formData.name || ""}
                           onChange={handleInputChange}
                           className="block w-full pl-12 pr-4 py-4 text-sm bg-gray-50/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-zinc-900/20 focus:border-zinc-900 focus:bg-white transition-all duration-200 placeholder-gray-400"
-                          placeholder="Enter your full name"
+                          placeholder="Masukkan nama lengkap Anda"
                         />
                       </div>
                     </div>
@@ -301,7 +305,7 @@ const Profile = () => {
                     {/* Email */}
                     <div className="group">
                       <label className="block text-sm font-medium text-gray-700 mb-3">
-                        Email Address
+                        Alamat Email
                       </label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -313,7 +317,7 @@ const Profile = () => {
                           value={formData.email || ""}
                           onChange={handleInputChange}
                           className="block w-full pl-12 pr-4 py-4 text-sm bg-gray-50/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-zinc-900/20 focus:border-zinc-900 focus:bg-white transition-all duration-200 placeholder-gray-400"
-                          placeholder="Enter your email address"
+                          placeholder="Masukkan alamat email Anda"
                         />
                       </div>
                     </div>
@@ -330,10 +334,10 @@ const Profile = () => {
                       {isLoading ? (
                         <div className="flex items-center justify-center gap-2">
                           <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                          Saving changes...
+                          Menyimpan Perubahan...
                         </div>
                       ) : (
-                        "Save Changes"
+                        "Simpan Perubahan"
                       )}
                     </button>
                   </div>
@@ -345,18 +349,18 @@ const Profile = () => {
               <div className="space-y-8">
                 <div>
                   <h2 className="text-xl font-light text-gray-900 mb-8">
-                    Security Settings
+                    Pengaturan Keamanan
                   </h2>
 
                   <div className="space-y-6">
                     {/* Current Password */}
                     <div className="group">
                       <label className="block text-sm font-medium text-gray-700 mb-3">
-                        Current Password
+                        Kata Sandi Sekarang
                       </label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                          <FaLock className="h-4 w-4 text-gray-400 group-focus-within:text-zinc-900 transition-colors" />
+                          <MdLock className="h-4 w-4 text-gray-400 group-focus-within:text-zinc-900 transition-colors" />
                         </div>
                         <input
                           type={showPasswords.current ? "text" : "password"}
@@ -364,7 +368,7 @@ const Profile = () => {
                           value={formData.currentPassword}
                           onChange={handleInputChange}
                           className="block w-full pl-12 pr-12 py-4 text-sm bg-gray-50/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-zinc-900/20 focus:border-zinc-900 focus:bg-white transition-all duration-200 placeholder-gray-400"
-                          placeholder="Enter current password"
+                          placeholder="Masukkan kata sandi sekarang"
                         />
                         <button
                           type="button"
@@ -373,9 +377,9 @@ const Profile = () => {
                           className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
                         >
                           {showPasswords.current ? (
-                            <FaEye className="h-4 w-4" />
+                            <MdVisibility className="h-4 w-4" />
                           ) : (
-                            <FaEyeSlash className="h-4 w-4" />
+                            <MdVisibilityOff className="h-4 w-4" />
                           )}
                         </button>
                       </div>
@@ -384,11 +388,11 @@ const Profile = () => {
                     {/* New Password */}
                     <div className="group">
                       <label className="block text-sm font-medium text-gray-700 mb-3">
-                        New Password
+                        Kata Sandi Baru
                       </label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                          <FaLock className="h-4 w-4 text-gray-400 group-focus-within:text-zinc-900 transition-colors" />
+                          <MdLock className="h-4 w-4 text-gray-400 group-focus-within:text-zinc-900 transition-colors" />
                         </div>
                         <input
                           type={showPasswords.new ? "text" : "password"}
@@ -396,7 +400,7 @@ const Profile = () => {
                           value={formData.newPassword}
                           onChange={handleInputChange}
                           className="block w-full pl-12 pr-12 py-4 text-sm bg-gray-50/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-zinc-900/20 focus:border-zinc-900 focus:bg-white transition-all duration-200 placeholder-gray-400"
-                          placeholder="Enter new password"
+                          placeholder="Masukkan kata sandi baru"
                         />
                         <button
                           type="button"
@@ -405,15 +409,15 @@ const Profile = () => {
                           className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
                         >
                           {showPasswords.new ? (
-                            <FaEye className="h-4 w-4" />
+                            <MdVisibility className="h-4 w-4" />
                           ) : (
-                            <FaEyeSlash className="h-4 w-4" />
+                            <MdVisibilityOff className="h-4 w-4" />
                           )}
                         </button>
                       </div>
                       {formData.newPassword && !isPasswordValid && (
                         <p className="text-xs text-red-500 mt-2 pl-1">
-                          Password must be at least 8 characters
+                          Kata sandi minimal 8 karakter
                         </p>
                       )}
                     </div>
@@ -421,11 +425,11 @@ const Profile = () => {
                     {/* Confirm Password */}
                     <div className="group">
                       <label className="block text-sm font-medium text-gray-700 mb-3">
-                        Confirm New Password
+                        Konfirmasi Kata Sandi Baru
                       </label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                          <FaLock className="h-4 w-4 text-gray-400 group-focus-within:text-zinc-900 transition-colors" />
+                          <MdLock className="h-4 w-4 text-gray-400 group-focus-within:text-zinc-900 transition-colors" />
                         </div>
                         <input
                           type={showPasswords.confirm ? "text" : "password"}
@@ -433,7 +437,7 @@ const Profile = () => {
                           value={formData.confirmPassword}
                           onChange={handleInputChange}
                           className="block w-full pl-12 pr-12 py-4 text-sm bg-gray-50/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-zinc-900/20 focus:border-zinc-900 focus:bg-white transition-all duration-200 placeholder-gray-400"
-                          placeholder="Confirm new password"
+                          placeholder="Konfirmasi kata sandi baru"
                         />
                         <button
                           type="button"
@@ -442,15 +446,15 @@ const Profile = () => {
                           className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
                         >
                           {showPasswords.confirm ? (
-                            <FaEye className="h-4 w-4" />
+                            <MdVisibility className="h-4 w-4" />
                           ) : (
-                            <FaEyeSlash className="h-4 w-4" />
+                            <MdVisibilityOff className="h-4 w-4" />
                           )}
                         </button>
                       </div>
                       {formData.confirmPassword && !doPasswordsMatch && (
                         <p className="text-xs text-red-500 mt-2 pl-1">
-                          Passwords do not match
+                          Kata sandi tidak cocok
                         </p>
                       )}
                     </div>
@@ -467,10 +471,10 @@ const Profile = () => {
                       {isLoading ? (
                         <div className="flex items-center justify-center gap-2">
                           <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                          Updating password...
+                          Mengganti Kata Sandi...
                         </div>
                       ) : (
-                        "Update Password"
+                        "Ganti Kata Sandi"
                       )}
                     </button>
                   </div>

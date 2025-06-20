@@ -1,14 +1,18 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { HiMenu, HiUser, HiLogout, HiChevronRight } from "react-icons/hi";
 import { IoLogOut } from "react-icons/io5";
 import { RiAdminLine } from "react-icons/ri";
+import { FiUser, FiLogOut, FiHelpCircle } from "react-icons/fi";
+import { LuSettings } from "react-icons/lu";
+import { MdOutlineSpaceDashboard } from "react-icons/md";
 import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
 
 const Header = ({ toggleSidebar, toggleCollapse, isCollapsed = true }) => {
   const pathname = usePathname();
+  const router = useRouter();
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
   const { data: session } = useSession();
@@ -71,6 +75,7 @@ const Header = ({ toggleSidebar, toggleCollapse, isCollapsed = true }) => {
 
   const handleLogout = async () => {
     await signOut({ callbackUrl: "/" });
+    setShowDropdown(false);
   };
 
   const getUserInitials = (name) => {
@@ -129,52 +134,94 @@ const Header = ({ toggleSidebar, toggleCollapse, isCollapsed = true }) => {
           {/* User profile dropdown */}
           <div className="ml-4 flex items-center md:ml-6">
             <div className="relative" ref={dropdownRef}>
-              <div
-                className="flex items-center gap-2 px-3 py-2 rounded-full bg-gray-100 text-sm hover:bg-gray-200 transition-colors focus:outline-none cursor-pointer"
+              <button
+                className="flex items-center space-x-1 p-2 rounded-full hover:bg-gray-100 transition-all duration-300 max-w-[180px]"
                 onClick={() => setShowDropdown(!showDropdown)}
               >
-                <span className="hidden md:block text-gray-700 font-medium">
-                  {session?.user.name || "..."}
+                <span className="hidden md:block text-md font-medium text-gray-700 truncate">
+                  {session?.user?.nama || session?.user?.name || "User"}
                 </span>
-                <div
-                  className={`h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white shadow-sm`}
-                >
-                  <span className="font-medium text-sm">
-                    {getUserInitials(session?.user?.name)}
+                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-white font-semibold text-sm">
+                    {getUserInitials(
+                      session?.user?.nama || session?.user?.name
+                    )}
                   </span>
                 </div>
-              </div>
+              </button>
 
               {/* Enhanced Dropdown Menu */}
               {showDropdown && (
-                <div className="absolute right-0 mt-2 w-64 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none transition-all duration-200 ease-in-out overflow-hidden">
-                  <div className="px-4 py-2 pb-4 border-b">
+                <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-xl border border-gray-100 pt-4 z-50">
+                  {/* User Info Header */}
+                  <div className="px-4 pb-3 border-b border-gray-100">
                     <div className="flex items-center space-x-3">
-                      <div
-                        className={`h-10 min-w-10 rounded-full bg-blue-600 flex items-center justify-center text-white`}
-                      >
-                        <span className="font-medium text-lg">
-                          {getUserInitials(session?.user?.name)}
+                      <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                        <span className="text-white font-semibold text-sm">
+                          {getUserInitials(
+                            session?.user?.nama || session?.user?.name
+                          )}
                         </span>
                       </div>
-                      <div className="w-full overflow-hidden text-ellipsis">
-                        <p className="text-sm font-medium text-gray-900 truncate">
-                          {session?.user.name || "..."}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">
+                          {session?.user?.nama || session?.user?.name || "User"}
                         </p>
                         <p className="text-xs text-gray-500 truncate">
-                          {session?.user.email}
+                          {session?.user?.email}
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  <button
-                    onClick={handleLogout}
-                    className="w-full text-left px-4 py-3 text-sm text-gray-700 flex items-center gap-1 hover:bg-zinc-200 transition"
-                  >
-                    <IoLogOut size={20} className="text-zinc-600" />
-                    <span>Logout</span>
-                  </button>
+                  {/* Menu Items */}
+                  <div className="my-2">
+                    <button
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-200 flex items-center space-x-2"
+                      onClick={() => {
+                        setShowDropdown(false);
+                        router.push("/dashboard");
+                      }}
+                    >
+                      <MdOutlineSpaceDashboard
+                        size={18}
+                        className="text-gray-700"
+                      />
+                      <span>Dashboard</span>
+                    </button>
+
+                    <button
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-200 flex items-center space-x-2"
+                      onClick={() => {
+                        setShowDropdown(false);
+                        router.push("/settings");
+                      }}
+                    >
+                      <LuSettings size={18} className="text-gray-700" />
+                      <span>Pengaturan</span>
+                    </button>
+
+                    <button
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-200 flex items-center space-x-2"
+                      onClick={() => {
+                        setShowDropdown(false);
+                        router.push("/about");
+                      }}
+                    >
+                      <FiHelpCircle size={18} className="text-gray-700" />
+                      <span>Bantuan</span>
+                    </button>
+
+                    <hr className="border-gray-100" />
+
+                    <button
+                      className="w-full text-left px-4 py-3 text-sm text-red-700 hover:bg-gray-50 transition-colors duration-200 flex items-center space-x-2 rounded-b-2xl -mb-2"
+                      onClick={handleLogout}
+                    >
+                      <FiLogOut size={18} className="text-red-700 pl-0.5" />
+                      <span>Keluar</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

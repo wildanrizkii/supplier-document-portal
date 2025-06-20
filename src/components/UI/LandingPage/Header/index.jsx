@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { GiPortal } from "react-icons/gi";
-import { FiUser, FiLogOut, FiFileText, FiHelpCircle } from "react-icons/fi";
+import { FiUser, FiLogOut, FiHelpCircle } from "react-icons/fi";
 import { LuSettings } from "react-icons/lu";
+import { MdOutlineSpaceDashboard } from "react-icons/md";
 
 const LandingPageHeader = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -45,6 +46,16 @@ const LandingPageHeader = () => {
   const handleLogout = () => {
     signOut();
     setIsUserMenuOpen(false);
+  };
+
+  // Updated getUserInitials method - same as Header component
+  const getUserInitials = (name) => {
+    if (!name) return "...";
+    const names = name.trim().split(/\s+/);
+    if (names.length >= 2) {
+      return (names[0].charAt(0) + names[1].charAt(0)).toUpperCase();
+    }
+    return names[0].charAt(0).toUpperCase();
   };
 
   return (
@@ -123,9 +134,9 @@ const LandingPageHeader = () => {
                     </span>
                     <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
                       <span className="text-white font-semibold text-sm">
-                        {(session?.user?.nama || session?.user?.name || "U")
-                          .charAt(0)
-                          .toUpperCase()}
+                        {getUserInitials(
+                          session?.user?.nama || session?.user?.name
+                        )}
                       </span>
                     </div>
                   </button>
@@ -138,13 +149,9 @@ const LandingPageHeader = () => {
                         <div className="flex items-center space-x-3">
                           <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
                             <span className="text-white font-semibold text-sm">
-                              {(
-                                session?.user?.nama ||
-                                session?.user?.name ||
-                                "U"
-                              )
-                                .charAt(0)
-                                .toUpperCase()}
+                              {getUserInitials(
+                                session?.user?.nama || session?.user?.name
+                              )}
                             </span>
                           </div>
                           <div className="flex-1 min-w-0">
@@ -166,6 +173,19 @@ const LandingPageHeader = () => {
                           className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-200 flex items-center space-x-2"
                           onClick={() => {
                             setIsUserMenuOpen(false);
+                            router.push("/dashboard");
+                          }}
+                        >
+                          <MdOutlineSpaceDashboard
+                            size={18}
+                            className="text-gray-700"
+                          />
+                          <span>Dashboard</span>
+                        </button>
+                        <button
+                          className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-200 flex items-center space-x-2"
+                          onClick={() => {
+                            setIsUserMenuOpen(false);
                             router.push("/settings");
                           }}
                         >
@@ -177,7 +197,7 @@ const LandingPageHeader = () => {
                           className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-200 flex items-center space-x-2"
                           onClick={() => {
                             setIsUserMenuOpen(false);
-                            router.push("/support");
+                            router.push("/about");
                           }}
                         >
                           <FiHelpCircle size={18} className="text-gray-700" />
@@ -251,9 +271,9 @@ const LandingPageHeader = () => {
                 <div className="flex items-center space-x-3 mb-4 p-4 bg-gray-50 rounded-xl">
                   <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
                     <span className="text-white font-semibold text-lg">
-                      {(session?.user?.nama || session?.user?.name || "U")
-                        .charAt(0)
-                        .toUpperCase()}
+                      {getUserInitials(
+                        session?.user?.nama || session?.user?.name
+                      )}
                     </span>
                   </div>
                   <div className="flex-1 min-w-0">
@@ -266,6 +286,19 @@ const LandingPageHeader = () => {
                   </div>
                 </div>
                 <div className="space-y-1">
+                  <button
+                    className="w-full text-left py-3 px-4 text-base font-medium text-gray-700 hover:text-gray-900 transition-all duration-300 rounded-lg hover:bg-gray-50 flex items-center space-x-2"
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      router.push("/dashboard");
+                    }}
+                  >
+                    <MdOutlineSpaceDashboard
+                      size={18}
+                      className="text-gray-700"
+                    />
+                    <span>Dashboard</span>
+                  </button>
                   <button
                     className="w-full text-left py-3 px-4 text-base font-medium text-gray-700 hover:text-gray-900 transition-all duration-300 rounded-lg hover:bg-gray-50 flex items-center space-x-2"
                     onClick={() => {

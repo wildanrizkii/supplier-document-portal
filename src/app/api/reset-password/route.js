@@ -120,6 +120,38 @@ export async function POST(req) {
       }
     }
 
+    // Check against recent password history (last 5 passwords)
+    const { data: passwordHistory, error: passwordHistoryError } =
+      await supabase
+        .from("password_history")
+        .select("password_hash")
+        .eq("user_id", user.id_user)
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+    if (
+      !passwordHistoryError &&
+      passwordHistory &&
+      passwordHistory.length > 0
+    ) {
+      for (const historicalPassword of passwordHistory) {
+        const isReusedPassword = await bcrypt.compare(
+          password,
+          historicalPassword.password_hash
+        );
+        if (isReusedPassword) {
+          return NextResponse.json(
+            {
+              message:
+                "Kata sandi baru tidak boleh sama dengan 5 kata sandi terakhir yang pernah digunakan!",
+              code: "PASSWORD_REUSED",
+            },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
     // Hash the new password
     const saltRounds = 12;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
@@ -139,6 +171,41 @@ export async function POST(req) {
       return NextResponse.json(
         { message: "Gagal mengupdate kata sandi!", code: "UPDATE_FAILED" },
         { status: 500 }
+      );
+    }
+
+    // Log the successful password reset for security monitoring
+    const { error: logError } = await supabase.from("security_logs").insert({
+      type: "password_reset_success",
+      email: user.email,
+      user_id: user.id_user,
+      ip_address:
+        req.headers.get("x-forwarded-for") ||
+        req.headers.get("x-real-ip") ||
+        "unknown",
+      user_agent: req.headers.get("user-agent") || "unknown",
+      metadata: {
+        token_id: token.substring(0, 8), // Only log partial token
+      },
+    });
+
+    if (logError) {
+      console.error("Error logging security event:", logError);
+    }
+
+    // Log password history (for preventing reuse of recent passwords)
+    const { error: passwordHistoryInsertError } = await supabase
+      .from("password_history")
+      .insert({
+        user_id: user.id_user,
+        email: user.email,
+        password_hash: hashedPassword,
+      });
+
+    if (passwordHistoryInsertError) {
+      console.warn(
+        "Failed to log password history:",
+        passwordHistoryInsertError
       );
     }
 

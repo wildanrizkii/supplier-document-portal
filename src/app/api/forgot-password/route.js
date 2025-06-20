@@ -229,6 +229,25 @@ export async function POST(req) {
       html: emailHTML,
     });
 
+    // Log the reset request for security monitoring
+    const { error: logError } = await supabase.from("security_logs").insert({
+      type: "password_reset_request",
+      email: email.toLowerCase(),
+      user_id: user.id_user,
+      ip_address:
+        req.headers.get("x-forwarded-for") ||
+        req.headers.get("x-real-ip") ||
+        "unknown",
+      user_agent: req.headers.get("user-agent") || "unknown",
+      metadata: {
+        reset_token_id: resetToken.substring(0, 8), // Only log partial token for security
+      },
+    });
+
+    if (logError) {
+      console.error("Error logging security event:", logError);
+    }
+
     return NextResponse.json({
       success: true,
       message: "Email reset kata sandi telah dikirim!",

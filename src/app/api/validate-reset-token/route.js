@@ -62,6 +62,26 @@ export async function POST(req) {
     //   );
     // }
 
+    // Log the token validation for security monitoring
+    const { error: logError } = await supabase.from("security_logs").insert({
+      type: "reset_token_validation",
+      email: user.email,
+      user_id: user.id_user,
+      ip_address:
+        req.headers.get("x-forwarded-for") ||
+        req.headers.get("x-real-ip") ||
+        "unknown",
+      user_agent: req.headers.get("user-agent") || "unknown",
+      metadata: {
+        result: "valid",
+        token_id: token.substring(0, 8), // Only log partial token
+      },
+    });
+
+    if (logError) {
+      console.error("Error logging security event:", logError);
+    }
+
     return NextResponse.json({
       success: true,
       message: "Token valid!",

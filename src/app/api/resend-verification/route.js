@@ -1,9 +1,12 @@
+// app/api/resend-verification/route.js
 import { NextResponse } from "next/server";
 import supabase from "@/app/utils/db";
+import crypto from "crypto";
 import nodemailer from "nodemailer";
 
+// Konfigurasi email transporter
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
+  host: process.env.SMTP_HOST, // e.g., smtp.gmail.com
   port: 587,
   secure: false,
   auth: {
@@ -17,51 +20,123 @@ export async function POST(req) {
     const { email } = await req.json();
 
     if (!email) {
-      return NextResponse.json({ error: "Email is required" }, { status: 400 });
+      return NextResponse.json(
+        { message: "Email harus disediakan!", code: "MISSING_EMAIL" },
+        { status: 400 }
+      );
     }
 
-    // Cek apakah user ada dan belum terverifikasi
-    const { data: user, error } = await supabase
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return NextResponse.json(
+        { message: "Format email tidak valid!", code: "INVALID_EMAIL" },
+        { status: 400 }
+      );
+    }
+
+    // Check if user exists
+    const { data: user, error: userError } = await supabase
       .from("users")
-      .select("nama, email, email_verified, verification_token_expires")
+      .select("*")
       .eq("email", email.toLowerCase())
-      .eq("email_verified", false)
       .single();
 
-    if (error || !user) {
+    if (userError || !user) {
       return NextResponse.json(
-        { error: "User not found or already verified" },
+        {
+          message: "Email tidak terdaftar dalam sistem!",
+          code: "USER_NOT_FOUND",
+        },
         { status: 404 }
       );
     }
 
-    // Generate token baru
-    const newToken =
-      Math.random().toString(36).substring(2, 15) +
-      Math.random().toString(36).substring(2, 15) +
-      Date.now().toString(36);
+    // Check if email is already verified
+    if (user.email_verified) {
+      return NextResponse.json(
+        {
+          message: "Email sudah diverifikasi. Anda dapat masuk ke akun Anda.",
+          code: "ALREADY_VERIFIED",
+        },
+        { status: 400 }
+      );
+    }
 
-    const newExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 jam
+    // Rate limiting check (server-side backup) using security_logs
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
-    // Update token di database
+    // Check recent verification emails sent
+    const { data: recentVerificationLogs, error: logsError } = await supabase
+      .from("security_logs")
+      .select("*")
+      .eq("type", "verification_email_sent")
+      .eq("email", email.toLowerCase())
+      .gte("created_at", oneHourAgo);
+
+    if (logsError) {
+      console.error("Error checking verification logs:", logsError);
+    } else if (recentVerificationLogs && recentVerificationLogs.length >= 3) {
+      return NextResponse.json(
+        {
+          message:
+            "Terlalu banyak permintaan verifikasi. Coba lagi dalam 1 jam.",
+          code: "RATE_LIMIT_EXCEEDED",
+        },
+        { status: 429 }
+      );
+    }
+
+    // Check if there was a recent verification email (within last minute)
+    const oneMinuteAgo = new Date(Date.now() - 60 * 1000).toISOString();
+
+    const { data: recentVerification } = await supabase
+      .from("security_logs")
+      .select("*")
+      .eq("type", "verification_email_sent")
+      .eq("email", email.toLowerCase())
+      .gte("created_at", oneMinuteAgo)
+      .limit(1);
+
+    if (recentVerification && recentVerification.length > 0) {
+      return NextResponse.json(
+        {
+          message:
+            "Email verifikasi baru saja dikirim. Mohon tunggu sebelum mengirim ulang.",
+          code: "TOO_SOON",
+        },
+        { status: 429 }
+      );
+    }
+
+    // Generate new verification token
+    const verificationToken = crypto.randomBytes(32).toString("hex");
+    const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    // Update user with new verification token
     const { error: updateError } = await supabase
       .from("users")
       .update({
-        verification_token: newToken,
-        verification_token_expires: newExpiry.toISOString(),
+        verification_token: verificationToken,
+        verification_token_expires: tokenExpiry.toISOString(),
       })
-      .eq("email", email.toLowerCase());
+      .eq("id_user", user.id_user);
 
     if (updateError) {
+      console.error("Error updating verification token:", updateError);
       return NextResponse.json(
-        { error: "Failed to update verification token" },
+        {
+          message: "Terjadi kesalahan saat memperbarui token!",
+          code: "UPDATE_ERROR",
+        },
         { status: 500 }
       );
     }
 
-    // Kirim email verifikasi baru
-    const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${newToken}`;
+    // Create verification URL
+    const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${verificationToken}`;
 
+    // Email template
     const emailHTML = `
       <!DOCTYPE html>
       <html>
@@ -97,10 +172,25 @@ export async function POST(req) {
               ${verificationUrl}
             </p>
             
+            <div style="background-color: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 15px; margin: 20px 0;">
+              <h3 style="color: #92400e; margin: 0 0 10px 0; font-size: 16px;">📧 Email Verifikasi Ulang</h3>
+              <p style="color: #92400e; margin: 0;">
+                Ini adalah email verifikasi yang dikirim ulang atas permintaan Anda. 
+                Jika Anda tidak meminta pengiriman ulang, abaikan email ini.
+              </p>
+            </div>
+            
             <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
               <p style="color: #64748b; font-size: 14px;">
                 Link verifikasi ini akan kedaluwarsa dalam 24 jam.<br>
-                Jika Anda tidak meminta pengiriman ulang ini, abaikan email ini.
+                Email dikirim pada: ${new Date().toLocaleString("id-ID", {
+                  timeZone: "Asia/Jakarta",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })} WIB
               </p>
             </div>
             
@@ -114,18 +204,64 @@ export async function POST(req) {
       </html>
     `;
 
+    // Send verification email
     await transporter.sendMail({
       from: `"Portal Dokumen" <${process.env.SMTP_FROM}>`,
       to: email,
-      subject: "Verifikasi Email Anda - Portal Dokumen",
+      subject: "Verifikasi Email Ulang - Portal Dokumen",
       html: emailHTML,
     });
 
-    return NextResponse.json({ success: true });
+    // Log the verification email sending for security monitoring
+    const { error: logError } = await supabase.from("security_logs").insert({
+      type: "verification_email_sent",
+      email: email.toLowerCase(),
+      user_id: user.id_user,
+      ip_address:
+        req.headers.get("x-forwarded-for") ||
+        req.headers.get("x-real-ip") ||
+        "unknown",
+      user_agent: req.headers.get("user-agent") || "unknown",
+      metadata: {
+        action: "resend",
+        token_id: verificationToken.substring(0, 8), // Only log partial token
+      },
+    });
+
+    if (logError) {
+      console.error("Error logging security event:", logError);
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Email verifikasi telah dikirim ulang!",
+    });
   } catch (error) {
     console.error("Error resending verification email:", error);
+
+    // Log the error (optional)
+    try {
+      const { email: errorEmail } = await req.json();
+      await supabase.from("security_logs").insert({
+        type: "verification_email_error",
+        email: errorEmail || "unknown",
+        ip_address:
+          req.headers.get("x-forwarded-for") ||
+          req.headers.get("x-real-ip") ||
+          "unknown",
+        metadata: {
+          error_message: error.message,
+        },
+      });
+    } catch (logError) {
+      console.error("Error logging error:", logError);
+    }
+
     return NextResponse.json(
-      { error: "Failed to resend verification email" },
+      {
+        message: "Terjadi kesalahan saat mengirim email verifikasi!",
+        code: "INTERNAL_ERROR",
+      },
       { status: 500 }
     );
   }
