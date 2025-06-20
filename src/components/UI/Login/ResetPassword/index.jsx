@@ -106,7 +106,7 @@ const ResetPasswordForm = () => {
     }
 
     // Special character check
-    if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+    if (/[!@#$%^&*(),.?":{}|<>_\-+=~`[\]\\\/]/.test(password)) {
       score += 1;
     } else {
       feedback.push("Satu karakter khusus");

@@ -363,8 +363,8 @@ const ForgotPasswordForm = () => {
               href="/login"
               className="inline-flex items-center text-slate-600 hover:text-slate-900 transition-colors duration-200"
             >
-              <MdArrowBack className="mr-2" size={18} />
-              <span className="text-sm">Kembali ke Login</span>
+              <MdArrowBack className="mr-2" size={20} />
+              <span className="text-md">Kembali ke Login</span>
             </Link>
           </div>
 

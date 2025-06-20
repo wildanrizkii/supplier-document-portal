@@ -2,11 +2,15 @@
 import React from "react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { signOut, useSession } from "next-auth/react";
 import { GiPortal } from "react-icons/gi";
+import { FiUser, FiLogOut, FiSettings } from "react-icons/fi";
 
 const LandingPageHeader = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const router = useRouter();
+  const { data: session, status } = useSession();
   const navigationItems = ["Dokumen", "Tentang Kami", "FAQ"];
 
   // Prevent body scroll when mobile menu is open
@@ -22,6 +26,25 @@ const LandingPageHeader = () => {
       document.body.style.overflow = "unset";
     };
   }, [isMobileMenuOpen]);
+
+  // Close user menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (isUserMenuOpen && !event.target.closest(".user-menu-container")) {
+        setIsUserMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isUserMenuOpen]);
+
+  const handleLogout = () => {
+    signOut();
+    setIsUserMenuOpen(false);
+  };
 
   return (
     <>
@@ -83,21 +106,172 @@ const LandingPageHeader = () => {
               </div>
             </button>
 
-            {/* Desktop Auth Buttons */}
-            <div className="hidden sm:flex md:flex items-center space-x-4">
-              <button
-                className="text-md font-medium text-gray-700 hover:text-gray-900 transition-all duration-300 hover:scale-105 cursor-pointer"
-                onClick={() => router.push("/login")}
-              >
-                Login
-              </button>
-              <button
-                className="px-4 sm:px-5 py-2 bg-zinc-900 text-white text-md font-medium rounded-full transition-all duration-300 hover:scale-105 cursor-pointer"
-                onClick={() => router.push("/register")}
-              >
-                Register
-              </button>
-            </div>
+            {/* Conditional rendering based on session */}
+            {status === "loading" ? (
+              <div className="hidden sm:block h-12 w-[180px] bg-gray-100 animate-pulse rounded-full"></div>
+            ) : session ? (
+              // User Menu (when logged in)
+              <div className="hidden sm:flex items-center space-x-4">
+                <div className="relative user-menu-container">
+                  <button
+                    className="flex items-center space-x-1 p-2 rounded-full hover:bg-gray-100 transition-all duration-300 max-w-[180px]"
+                    onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  >
+                    <span className="text-md font-medium text-gray-700 truncate">
+                      {session?.user?.nama || session?.user?.name || "User"}
+                    </span>
+                    <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="text-white font-semibold text-sm">
+                        {(session?.user?.nama || session?.user?.name || "U")
+                          .charAt(0)
+                          .toUpperCase()}
+                      </span>
+                    </div>
+                  </button>
+
+                  {/* User Dropdown Menu */}
+                  {isUserMenuOpen && (
+                    <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-xl border border-gray-100 pt-4 z-50">
+                      {/* User Info Header */}
+                      <div className="px-4 pb-3 border-b border-gray-100">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                            <span className="text-white font-semibold text-sm">
+                              {(
+                                session?.user?.nama ||
+                                session?.user?.name ||
+                                "U"
+                              )
+                                .charAt(0)
+                                .toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-900 truncate">
+                              {session?.user?.nama ||
+                                session?.user?.name ||
+                                "User"}
+                            </p>
+                            <p className="text-xs text-gray-500 truncate">
+                              {session?.user?.email}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Menu Items */}
+                      <div className="my-2">
+                        <button
+                          className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-200 flex items-center space-x-3"
+                          onClick={() => {
+                            setIsUserMenuOpen(false);
+                            router.push("/documents/new");
+                          }}
+                        >
+                          <svg
+                            className="w-4 h-4 text-gray-500"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                            />
+                          </svg>
+                          <span>Dokumen Baru</span>
+                        </button>
+
+                        <button
+                          className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-200 flex items-center space-x-3"
+                          onClick={() => {
+                            setIsUserMenuOpen(false);
+                            router.push("/notifications");
+                          }}
+                        >
+                          <svg
+                            className="w-4 h-4 text-gray-500"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15 17h5l-5 5-5-5h5V6H7a2 2 0 00-2 2v9"
+                            />
+                          </svg>
+                          <span>Notifikasi</span>
+                        </button>
+
+                        <button
+                          className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-200 flex items-center space-x-3"
+                          onClick={() => {
+                            setIsUserMenuOpen(false);
+                            router.push("/profile");
+                          }}
+                        >
+                          <FiUser className="w-4 h-4 text-gray-500" />
+                          <span>Pengaturan</span>
+                        </button>
+
+                        <button
+                          className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-200 flex items-center space-x-3"
+                          onClick={() => {
+                            setIsUserMenuOpen(false);
+                            router.push("/support");
+                          }}
+                        >
+                          <svg
+                            className="w-4 h-4 text-gray-500"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
+                          <span>Bantuan</span>
+                        </button>
+
+                        <hr className="mt-2 border-gray-100" />
+
+                        <button
+                          className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-gray-50 transition-colors duration-200 flex items-center space-x-3 rounded-b-2xl -mb-2"
+                          onClick={handleLogout}
+                        >
+                          <FiLogOut className="w-4 h-4 text-red-600" />
+                          <span className="pb-0.5">Keluar</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              // Auth Buttons (when not logged in)
+              <div className="hidden sm:flex items-center space-x-4">
+                <button
+                  className="text-md font-medium text-gray-700 hover:text-gray-900 transition-all duration-300 hover:scale-105 cursor-pointer"
+                  onClick={() => router.push("/login")}
+                >
+                  Login
+                </button>
+                <button
+                  className="px-4 sm:px-5 py-2 bg-zinc-900 text-white text-md font-medium rounded-full transition-all duration-300 hover:scale-105 cursor-pointer"
+                  onClick={() => router.push("/register")}
+                >
+                  Register
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -127,21 +301,137 @@ const LandingPageHeader = () => {
               ))}
             </nav>
 
-            {/* Mobile Auth Buttons */}
-            <div className="flex flex-col space-y-3 pt-4 border-t border-gray-200">
-              <button
-                className="w-full text-center py-3 px-6 text-lg font-medium text-gray-700 hover:text-gray-900 transition-all duration-300 rounded-full hover:bg-gray-50 cursor-pointer"
-                onClick={() => router.push("/login")}
-              >
-                Login
-              </button>
-              <button
-                className="w-full py-3 px-6 bg-zinc-900 hover:bg-zinc-800 text-white text-lg font-medium rounded-full transition-all duration-300 transform hover:scale-105 cursor-pointer"
-                onClick={() => router.push("/register")}
-              >
-                Register
-              </button>
-            </div>
+            {/* Mobile Auth/User Section */}
+            {session ? (
+              // Mobile User Info (when logged in)
+              <div className="pt-4 border-t border-gray-200">
+                <div className="flex items-center space-x-3 mb-4 p-4 bg-gray-50 rounded-xl">
+                  <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                    <span className="text-white font-semibold text-lg">
+                      {(session?.user?.nama || session?.user?.name || "U")
+                        .charAt(0)
+                        .toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900 truncate">
+                      {session?.user?.nama || session?.user?.name}
+                    </p>
+                    <p className="text-sm text-gray-500 truncate">
+                      {session?.user?.email}
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <button
+                    className="w-full text-left py-3 px-4 text-base font-medium text-gray-700 hover:text-gray-900 transition-all duration-300 rounded-lg hover:bg-gray-50 flex items-center space-x-3"
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      router.push("/documents/new");
+                    }}
+                  >
+                    <svg
+                      className="w-5 h-5 text-gray-500"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                      />
+                    </svg>
+                    <span>Dokumen Baru</span>
+                  </button>
+                  <button
+                    className="w-full text-left py-3 px-4 text-base font-medium text-gray-700 hover:text-gray-900 transition-all duration-300 rounded-lg hover:bg-gray-50 flex items-center space-x-3"
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      router.push("/notifications");
+                    }}
+                  >
+                    <svg
+                      className="w-5 h-5 text-gray-500"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 17h5l-5 5-5-5h5V6H7a2 2 0 00-2 2v9"
+                      />
+                    </svg>
+                    <span>Notifikasi</span>
+                    <span className="ml-auto text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full font-medium">
+                      3
+                    </span>
+                  </button>
+                  <button
+                    className="w-full text-left py-3 px-4 text-base font-medium text-gray-700 hover:text-gray-900 transition-all duration-300 rounded-lg hover:bg-gray-50 flex items-center space-x-3"
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      router.push("/profile");
+                    }}
+                  >
+                    <FiUser size={20} className="text-gray-500" />
+                    <span>Pengaturan</span>
+                  </button>
+                  <button
+                    className="w-full text-left py-3 px-4 text-base font-medium text-gray-700 hover:text-gray-900 transition-all duration-300 rounded-lg hover:bg-gray-50 flex items-center space-x-3"
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      router.push("/support");
+                    }}
+                  >
+                    <svg
+                      className="w-5 h-5 text-gray-500"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    <span>Bantuan</span>
+                  </button>
+                  <hr className="my-2 border-gray-200" />
+                  <button
+                    className="w-full text-left py-3 px-4 text-base font-medium text-red-600 hover:text-red-700 hover:bg-red-50 transition-all duration-300 rounded-lg flex items-center space-x-3 group"
+                    onClick={handleLogout}
+                  >
+                    <FiLogOut
+                      size={20}
+                      className="text-red-500 group-hover:text-red-700"
+                    />
+                    <span>Keluar</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              // Mobile Auth Buttons (when not logged in)
+              <div className="flex flex-col space-y-3 pt-4 border-t border-gray-200">
+                <button
+                  className="w-full text-center py-3 px-6 text-lg font-medium text-gray-700 hover:text-gray-900 transition-all duration-300 rounded-full hover:bg-gray-50 cursor-pointer"
+                  onClick={() => router.push("/login")}
+                >
+                  Login
+                </button>
+                <button
+                  className="w-full py-3 px-6 bg-zinc-900 hover:bg-zinc-800 text-white text-lg font-medium rounded-full transition-all duration-300 transform hover:scale-105 cursor-pointer"
+                  onClick={() => router.push("/register")}
+                >
+                  Register
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </header>
