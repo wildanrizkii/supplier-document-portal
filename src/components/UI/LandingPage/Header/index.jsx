@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { GiPortal } from "react-icons/gi";
-import { FiUser, FiLogOut, FiSettings } from "react-icons/fi";
+import { FiUser, FiLogOut, FiFileText, FiHelpCircle } from "react-icons/fi";
+import { LuSettings } from "react-icons/lu";
 
 const LandingPageHeader = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -162,93 +163,35 @@ const LandingPageHeader = () => {
                       {/* Menu Items */}
                       <div className="my-2">
                         <button
-                          className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-200 flex items-center space-x-3"
+                          className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-200 flex items-center space-x-2"
                           onClick={() => {
                             setIsUserMenuOpen(false);
-                            router.push("/documents/new");
+                            router.push("/settings");
                           }}
                         >
-                          <svg
-                            className="w-4 h-4 text-gray-500"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                            />
-                          </svg>
-                          <span>Dokumen Baru</span>
-                        </button>
-
-                        <button
-                          className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-200 flex items-center space-x-3"
-                          onClick={() => {
-                            setIsUserMenuOpen(false);
-                            router.push("/notifications");
-                          }}
-                        >
-                          <svg
-                            className="w-4 h-4 text-gray-500"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M15 17h5l-5 5-5-5h5V6H7a2 2 0 00-2 2v9"
-                            />
-                          </svg>
-                          <span>Notifikasi</span>
-                        </button>
-
-                        <button
-                          className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-200 flex items-center space-x-3"
-                          onClick={() => {
-                            setIsUserMenuOpen(false);
-                            router.push("/profile");
-                          }}
-                        >
-                          <FiUser className="w-4 h-4 text-gray-500" />
+                          <LuSettings size={18} className="text-gray-700" />
                           <span>Pengaturan</span>
                         </button>
 
                         <button
-                          className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-200 flex items-center space-x-3"
+                          className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-200 flex items-center space-x-2"
                           onClick={() => {
                             setIsUserMenuOpen(false);
                             router.push("/support");
                           }}
                         >
-                          <svg
-                            className="w-4 h-4 text-gray-500"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                            />
-                          </svg>
+                          <FiHelpCircle size={18} className="text-gray-700" />
                           <span>Bantuan</span>
                         </button>
 
-                        <hr className="mt-2 border-gray-100" />
+                        <hr className="border-gray-100" />
 
                         <button
-                          className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-gray-50 transition-colors duration-200 flex items-center space-x-3 rounded-b-2xl -mb-2"
+                          className="w-full text-left px-4 py-3 text-sm text-red-700 hover:bg-gray-50 transition-colors duration-200 flex items-center space-x-2 rounded-b-2xl -mb-2"
                           onClick={handleLogout}
                         >
-                          <FiLogOut className="w-4 h-4 text-red-600" />
-                          <span className="pb-0.5">Keluar</span>
+                          <FiLogOut size={18} className="text-red-700 pl-0.5" />
+                          <span>Keluar</span>
                         </button>
                       </div>
                     </div>
@@ -324,93 +267,31 @@ const LandingPageHeader = () => {
                 </div>
                 <div className="space-y-1">
                   <button
-                    className="w-full text-left py-3 px-4 text-base font-medium text-gray-700 hover:text-gray-900 transition-all duration-300 rounded-lg hover:bg-gray-50 flex items-center space-x-3"
-                    onClick={() => {
-                      setIsMobileMenuOpen(false);
-                      router.push("/documents/new");
-                    }}
-                  >
-                    <svg
-                      className="w-5 h-5 text-gray-500"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                      />
-                    </svg>
-                    <span>Dokumen Baru</span>
-                  </button>
-                  <button
-                    className="w-full text-left py-3 px-4 text-base font-medium text-gray-700 hover:text-gray-900 transition-all duration-300 rounded-lg hover:bg-gray-50 flex items-center space-x-3"
-                    onClick={() => {
-                      setIsMobileMenuOpen(false);
-                      router.push("/notifications");
-                    }}
-                  >
-                    <svg
-                      className="w-5 h-5 text-gray-500"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 17h5l-5 5-5-5h5V6H7a2 2 0 00-2 2v9"
-                      />
-                    </svg>
-                    <span>Notifikasi</span>
-                    <span className="ml-auto text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full font-medium">
-                      3
-                    </span>
-                  </button>
-                  <button
-                    className="w-full text-left py-3 px-4 text-base font-medium text-gray-700 hover:text-gray-900 transition-all duration-300 rounded-lg hover:bg-gray-50 flex items-center space-x-3"
+                    className="w-full text-left py-3 px-4 text-base font-medium text-gray-700 hover:text-gray-900 transition-all duration-300 rounded-lg hover:bg-gray-50 flex items-center space-x-2"
                     onClick={() => {
                       setIsMobileMenuOpen(false);
                       router.push("/profile");
                     }}
                   >
-                    <FiUser size={20} className="text-gray-500" />
+                    <LuSettings size={22} className="text-gray-700" />
                     <span>Pengaturan</span>
                   </button>
                   <button
-                    className="w-full text-left py-3 px-4 text-base font-medium text-gray-700 hover:text-gray-900 transition-all duration-300 rounded-lg hover:bg-gray-50 flex items-center space-x-3"
+                    className="w-full text-left py-3 px-4 text-base font-medium text-gray-700 hover:text-gray-900 transition-all duration-300 rounded-lg hover:bg-gray-50 flex items-center space-x-2"
                     onClick={() => {
                       setIsMobileMenuOpen(false);
                       router.push("/support");
                     }}
                   >
-                    <svg
-                      className="w-5 h-5 text-gray-500"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
+                    <FiHelpCircle size={22} className="text-gray-700" />
                     <span>Bantuan</span>
                   </button>
-                  <hr className="my-2 border-gray-200" />
+                  <hr className="border-gray-200" />
                   <button
-                    className="w-full text-left py-3 px-4 text-base font-medium text-red-600 hover:text-red-700 hover:bg-red-50 transition-all duration-300 rounded-lg flex items-center space-x-3 group"
+                    className="w-full text-left py-3 px-4 text-base font-medium text-red-700 hover:text-red-700 hover:bg-red-50 transition-all duration-300 rounded-lg flex items-center space-x-2 group"
                     onClick={handleLogout}
                   >
-                    <FiLogOut
-                      size={20}
-                      className="text-red-500 group-hover:text-red-700"
-                    />
+                    <FiLogOut size={22} className="text-red-700 pl-0.5" />
                     <span>Keluar</span>
                   </button>
                 </div>

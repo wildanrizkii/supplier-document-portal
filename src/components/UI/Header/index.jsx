@@ -99,7 +99,7 @@ const Header = ({ toggleSidebar, toggleCollapse, isCollapsed = true }) => {
             </button>
 
             {/* Breadcrumb */}
-            <nav className="flex items-center space-x-1 text-sm">
+            <nav className="flex items-center space-x-1 text-md">
               {breadcrumbs.map((crumb, index) => (
                 <div key={crumb.href} className="flex items-center">
                   {index > 0 && (
