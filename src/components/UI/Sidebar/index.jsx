@@ -10,6 +10,10 @@ import {
   IoChevronDownOutline,
   IoSettingsOutline,
 } from "react-icons/io5";
+import {
+  TbLayoutSidebarLeftCollapse,
+  TbLayoutSidebarRightCollapse,
+} from "react-icons/tb";
 import { LuPackage, LuHammer, LuRuler } from "react-icons/lu";
 import { PiToolbox } from "react-icons/pi";
 import { VscTools } from "react-icons/vsc";
@@ -84,14 +88,14 @@ const NAVIGATION_ITEMS = [
     ],
   },
   {
-    name: "Settings",
+    name: "Pengaturan",
     href: "/settings",
     subpaths: ["/settings/users"],
     icon: <IoSettingsOutline size={22} />,
     roles: ["Admin"],
   },
   {
-    name: "About",
+    name: "Tentang",
     href: "/about",
     subpaths: ["/about"],
     icon: <FiInfo size={22} />,
@@ -503,24 +507,13 @@ const Sidebar = ({
                   onClick={handleToggleCollapse}
                   title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
                 >
-                  <svg
-                    className={`h-4 w-4 transform transition-transform duration-200 ${
-                      isCollapsed ? "rotate-180" : ""
-                    }`}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
-                    />
-                  </svg>
-                  {!isCollapsed && (
-                    <span className="ml-1 text-sm">Collapse</span>
+                  {!isCollapsed ? (
+                    <TbLayoutSidebarLeftCollapse size={24} />
+                  ) : (
+                    <TbLayoutSidebarRightCollapse size={24} />
                   )}
+
+                  {!isCollapsed && <span className="ml-1 text-md">Hide</span>}
                 </button>
               </div>
             </div>
