@@ -1,0 +1,13 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/daily-email-reminder",
+      "schedule": "0 2 * * *"
+    }
+  ],
+  "functions": {
+    "app/api/cron/daily-email-reminder/route.js": {
+      "maxDuration": 60
+    }
+  }
+}

@@ -59,11 +59,14 @@ const Modal = ({ isOpen, onClose, title, children, size = "max-w-md" }) => {
 
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center z-50 overflow-y-auto"
+      className="fixed inset-0 flex items-center justify-center z-50 p-4"
       style={{ backgroundColor: "rgba(75, 85, 99, 0.4)" }}
     >
-      <div className={`bg-white rounded-lg shadow-xl ${size} w-full mx-4 my-8`}>
-        <div className="flex items-center justify-between px-6 pt-6 pb-2 border-gray-200">
+      <div
+        className={`bg-white rounded-lg shadow-xl ${size} w-full max-h-[90vh] overflow-hidden flex flex-col`}
+        style={{ maxHeight: "90vh" }}
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
           <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
           <button
             onClick={onClose}
@@ -72,7 +75,7 @@ const Modal = ({ isOpen, onClose, title, children, size = "max-w-md" }) => {
             <X size={20} />
           </button>
         </div>
-        {children}
+        <div className="flex-1 overflow-y-auto">{children}</div>
       </div>
     </div>
   );
@@ -325,8 +328,7 @@ const MillSheet = () => {
           item.part_name_name
             .toLowerCase()
             .includes(searchTerm.toLowerCase()) ||
-          item.supplier_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          item.status.toLowerCase().includes(searchTerm.toLowerCase())
+          item.supplier_name.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -814,9 +816,6 @@ const MillSheet = () => {
                   </button>
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Document
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -871,26 +870,28 @@ const MillSheet = () => {
                     <td className="px-6 py-4 text-sm text-gray-900">
                       <StatusBadge status={item.status} />
                     </td>
-                    <td className="px-6 py-4 text-sm text-center">
-                      {item.document_url ? (
-                        <button
-                          onClick={() =>
-                            handleDownload(
-                              item.document_url,
-                              `${item.material}_document`
-                            )
-                          }
-                          className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-all duration-150"
-                          title="Download Document"
-                        >
-                          <Download size={16} />
-                        </button>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       <div className="flex items-center justify-start space-x-2">
+                        {/* Download Document Button */}
+                        {item.document_url ? (
+                          <button
+                            onClick={() =>
+                              handleDownload(
+                                item.document_url,
+                                `${item.material}_document`
+                              )
+                            }
+                            className="inline-flex items-center justify-center w-8 h-8 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-full transition-all duration-150"
+                            title="Download Document"
+                          >
+                            <Download size={16} />
+                          </button>
+                        ) : (
+                          <div className="inline-flex items-center justify-center w-8 h-8">
+                            <span className="text-gray-400 text-xs">-</span>
+                          </div>
+                        )}
+
                         {/* View Detail Button */}
                         <button
                           onClick={() => openDetailModal(item)}
@@ -1043,7 +1044,7 @@ const MillSheet = () => {
         title={showAddModal ? "Add New Mill Sheet" : "Edit Mill Sheet"}
         size="max-w-4xl"
       >
-        <div className="p-6 max-h-[80vh] overflow-y-auto">
+        <div className="p-6 max-h-[70vh] overflow-y-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Material */}
             <div className="md:col-span-2">
@@ -1233,7 +1234,7 @@ const MillSheet = () => {
         isOpen={showDetailModal}
         onClose={closeAllModals}
         title="Mill Sheet Details"
-        size="max-w-3xl"
+        size="max-w-4xl"
       >
         <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1260,12 +1261,20 @@ const MillSheet = () => {
               </div>
             </div>
 
-            {/* Document Information */}
+            {/* Supplier and Parts Information */}
             <div className="md:col-span-2 border-b border-gray-200 pb-4">
               <h4 className="text-lg font-medium text-gray-900 mb-4">
-                Document Information
+                Supplier & Parts Information
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <h5 className="text-sm font-medium text-gray-500">
+                    Supplier
+                  </h5>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {selectedItem?.supplier_name}
+                  </p>
+                </div>
                 <div>
                   <h5 className="text-sm font-medium text-gray-500">
                     Document Type
@@ -1276,28 +1285,19 @@ const MillSheet = () => {
                 </div>
                 <div>
                   <h5 className="text-sm font-medium text-gray-500">
-                    Document File
+                    Part Number
                   </h5>
-                  <div className="mt-1">
-                    {selectedItem?.document_url ? (
-                      <button
-                        onClick={() =>
-                          handleDownload(
-                            selectedItem.document_url,
-                            `${selectedItem.material}_document`
-                          )
-                        }
-                        className="inline-flex items-center text-blue-600 hover:text-blue-800 text-sm"
-                      >
-                        <Download size={16} className="mr-1" />
-                        Download Document
-                      </button>
-                    ) : (
-                      <span className="text-sm text-gray-500">
-                        No document uploaded
-                      </span>
-                    )}
-                  </div>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {selectedItem?.part_number_name}
+                  </p>
+                </div>
+                <div>
+                  <h5 className="text-sm font-medium text-gray-500">
+                    Part Name
+                  </h5>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {selectedItem?.part_name_name}
+                  </p>
                 </div>
               </div>
             </div>
@@ -1327,41 +1327,42 @@ const MillSheet = () => {
               </div>
             </div>
 
-            {/* Related Information */}
+            {/* Document Information */}
             <div className="md:col-span-2">
               <h4 className="text-lg font-medium text-gray-900 mb-4">
-                Related Information
+                Document Information
               </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div>
                   <h5 className="text-sm font-medium text-gray-500">
-                    Supplier
+                    Document File
                   </h5>
-                  <p className="mt-1 text-sm text-gray-900">
-                    {selectedItem?.supplier_name}
-                  </p>
-                </div>
-                <div>
-                  <h5 className="text-sm font-medium text-gray-500">
-                    Part Name
-                  </h5>
-                  <p className="mt-1 text-sm text-gray-900">
-                    {selectedItem?.part_name_name}
-                  </p>
-                </div>
-                <div>
-                  <h5 className="text-sm font-medium text-gray-500">
-                    Part Number
-                  </h5>
-                  <p className="mt-1 text-sm text-gray-900">
-                    {selectedItem?.part_number_name}
-                  </p>
+                  <div className="mt-1">
+                    {selectedItem?.document_url ? (
+                      <button
+                        onClick={() =>
+                          handleDownload(
+                            selectedItem.document_url,
+                            `${selectedItem.material}_document`
+                          )
+                        }
+                        className="inline-flex items-center text-blue-600 hover:text-blue-800 text-sm"
+                      >
+                        <Download size={16} className="mr-1" />
+                        Download Document
+                      </button>
+                    ) : (
+                      <span className="text-sm text-gray-500">
+                        No document uploaded
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="flex justify-end mt-6">
+          <div className="flex justify-end mt-6 pt-4 border-t border-gray-200">
             <button
               onClick={closeAllModals}
               className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
