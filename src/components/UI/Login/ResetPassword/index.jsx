@@ -1,12 +1,13 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { MdLock, MdVisibility, MdVisibilityOff } from "react-icons/md";
 import toast from "react-hot-toast";
 import { useRouter, useSearchParams } from "next/navigation";
 import { GiPortal } from "react-icons/gi";
 
-const ResetPassword = () => {
+// Separate component for the main reset password logic
+const ResetPasswordForm = () => {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -610,6 +611,27 @@ const ResetPassword = () => {
         </div>
       </div>
     </div>
+  );
+};
+
+// Loading component for Suspense fallback
+const ResetPasswordLoading = () => {
+  return (
+    <div className="min-h-screen bg-white flex flex-col justify-center items-center">
+      <div className="text-center">
+        <div className="w-8 h-8 border-2 border-slate-900 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+        <p className="text-slate-600">Memuat halaman reset password...</p>
+      </div>
+    </div>
+  );
+};
+
+// Main component with Suspense wrapper
+const ResetPassword = () => {
+  return (
+    <Suspense fallback={<ResetPasswordLoading />}>
+      <ResetPasswordForm />
+    </Suspense>
   );
 };
 

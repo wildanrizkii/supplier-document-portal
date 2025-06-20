@@ -1,12 +1,13 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { MdEmail, MdArrowBack } from "react-icons/md";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import { GiPortal } from "react-icons/gi";
 
-const ForgotPassword = () => {
+// Main forgot password form component
+const ForgotPasswordForm = () => {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -537,6 +538,23 @@ const ForgotPassword = () => {
       </div>
     </div>
   );
+};
+
+// Loading component for Suspense fallback (optional, karena ForgotPassword tidak menggunakan searchParams)
+const ForgotPasswordLoading = () => {
+  return (
+    <div className="min-h-screen bg-white flex flex-col justify-center items-center">
+      <div className="text-center">
+        <div className="w-8 h-8 border-2 border-slate-900 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+        <p className="text-slate-600">Memuat halaman...</p>
+      </div>
+    </div>
+  );
+};
+
+// Main component (tidak perlu Suspense karena tidak menggunakan searchParams)
+const ForgotPassword = () => {
+  return <ForgotPasswordForm />;
 };
 
 export default ForgotPassword;
