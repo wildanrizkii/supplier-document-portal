@@ -138,63 +138,67 @@ async function handleCronRequest(request, method) {
     // Email recipients - hanya 1 email
     const recipients = ["eltutorial9560@gmail.com"];
 
-    console.log(`📧 Sending emails to: ${recipients.join(", ")}`);
+    console.log(`📧 Sending consolidated email to: ${recipients.join(", ")}`);
     console.log(`👤 Single recipient configured`);
+    console.log(
+      `📦 Consolidating ${expiringRecords.length} materials into 1 email`
+    );
 
-    // Send emails
-    const emailPromises = expiringRecords.map(async (record) => {
-      const daysUntilExpiry = Math.ceil(
-        (new Date(record.tanggal_expire).getTime() - new Date().getTime()) /
-          (1000 * 60 * 60 * 24)
+    // Send single consolidated email with all expiring records
+    let emailResult;
+    let successful = 0;
+    let failed = 0;
+
+    try {
+      const emailHTML = generateConsolidatedEmailHTML(expiringRecords);
+      const emailSubject = `🚨 URGENT: ${expiringRecords.length} Mill Sheet(s) Expiring Soon`;
+
+      console.log(
+        `📤 Sending consolidated email with subject: ${emailSubject}`
       );
 
-      const emailHTML = generateEmailHTML(record, daysUntilExpiry);
-      const emailSubject = `🚨 URGENT: Mill Sheet Expiring in ${daysUntilExpiry} day(s) - ${record.material}`;
-
-      return await resend.emails.send({
+      emailResult = await resend.emails.send({
         from: "Mill Sheet System <onboarding@resend.dev>",
         to: recipients,
         subject: emailSubject,
         html: emailHTML,
         tags: [
           { name: "source", value: isVercelCron ? "vercel-cron" : "manual" },
-          { name: "category", value: "mill-sheet-reminder" },
-          {
-            name: "material",
-            value: record.material.replace(/[^a-zA-Z0-9]/g, "_"),
-          },
+          { name: "category", value: "mill-sheet-reminder-consolidated" },
+          { name: "material_count", value: expiringRecords.length.toString() },
+          { name: "email_type", value: "consolidated" },
         ],
       });
-    });
 
-    const emailResults = await Promise.allSettled(emailPromises);
-
-    const successful = emailResults.filter(
-      (result) => result.status === "fulfilled"
-    ).length;
-    const failed = emailResults.filter(
-      (result) => result.status === "rejected"
-    ).length;
-
-    // Log results
-    emailResults.forEach((result, index) => {
-      if (result.status === "rejected") {
-        console.error(`❌ Email ${index + 1} failed:`, result.reason);
-      } else {
+      if (emailResult.data) {
+        successful = 1;
         console.log(
-          `✅ Email ${index + 1} sent successfully - ID: ${result.value?.data?.id}`
+          `✅ Consolidated email sent successfully - ID: ${emailResult.data.id}`
+        );
+      } else {
+        failed = 1;
+        console.error(
+          `❌ Failed to send consolidated email:`,
+          emailResult.error
         );
       }
-    });
+    } catch (emailError) {
+      failed = 1;
+      console.error(`❌ Email sending error:`, emailError);
+    }
 
     // Log to email_logs table
     const { error: emailLogError } = await supabase.from("email_logs").insert({
-      action: "cron_expiry_reminder",
+      action: "cron_expiry_reminder_consolidated",
       records_count: expiringRecords.length,
       emails_sent: successful,
       emails_failed: failed,
       recipients: recipients,
       created_at: new Date().toISOString(),
+      details: {
+        email_type: "consolidated",
+        materials: expiringRecords.map((r) => r.material),
+      },
     });
 
     if (emailLogError) {
@@ -207,7 +211,10 @@ async function handleCronRequest(request, method) {
       status: "completed",
       emails_sent: successful,
       emails_failed: failed,
-      result: `Successfully sent ${successful} emails, ${failed} failed`,
+      result:
+        successful > 0
+          ? `Successfully sent 1 consolidated email with ${expiringRecords.length} materials`
+          : `Failed to send consolidated email`,
       completed_at: new Date().toISOString(),
     });
 
@@ -216,7 +223,7 @@ async function handleCronRequest(request, method) {
     }
 
     console.log(
-      `🎉 Cron job completed successfully - Sent: ${successful}, Failed: ${failed}`
+      `🎉 Cron job completed successfully - Consolidated Email: ${successful > 0 ? "Sent" : "Failed"}`
     );
 
     return NextResponse.json({
@@ -228,6 +235,7 @@ async function handleCronRequest(request, method) {
         emails_sent: successful,
         emails_failed: failed,
         recipients: recipients.length,
+        email_type: "consolidated",
         method: method,
         source: isVercelCron ? "vercel-cron" : "manual",
       },
@@ -259,15 +267,106 @@ async function handleCronRequest(request, method) {
   }
 }
 
-// Email HTML template
-function generateEmailHTML(record, daysUntilExpiry) {
+// Consolidated Email HTML template
+function generateConsolidatedEmailHTML(records) {
+  // Sort records by days until expiry (most urgent first)
+  const sortedRecords = records.sort((a, b) => {
+    const daysA = Math.ceil(
+      (new Date(a.tanggal_expire).getTime() - new Date().getTime()) /
+        (1000 * 60 * 60 * 24)
+    );
+    const daysB = Math.ceil(
+      (new Date(b.tanggal_expire).getTime() - new Date().getTime()) /
+        (1000 * 60 * 60 * 24)
+    );
+    return daysA - daysB;
+  });
+
+  // Generate summary statistics
+  const today = new Date();
+  const expiring1Day = sortedRecords.filter((r) => {
+    const days = Math.ceil(
+      (new Date(r.tanggal_expire).getTime() - today.getTime()) /
+        (1000 * 60 * 60 * 24)
+    );
+    return days === 1;
+  }).length;
+
+  const expiring2Days = sortedRecords.filter((r) => {
+    const days = Math.ceil(
+      (new Date(r.tanggal_expire).getTime() - today.getTime()) /
+        (1000 * 60 * 60 * 24)
+    );
+    return days === 2;
+  }).length;
+
+  const expiring3Days = sortedRecords.filter((r) => {
+    const days = Math.ceil(
+      (new Date(r.tanggal_expire).getTime() - today.getTime()) /
+        (1000 * 60 * 60 * 24)
+    );
+    return days === 3;
+  }).length;
+
+  // Generate material cards HTML
+  const materialsHTML = sortedRecords
+    .map((record) => {
+      const daysUntilExpiry = Math.ceil(
+        (new Date(record.tanggal_expire).getTime() - new Date().getTime()) /
+          (1000 * 60 * 60 * 24)
+      );
+
+      const badgeClass =
+        daysUntilExpiry === 1
+          ? "critical"
+          : daysUntilExpiry === 2
+            ? "warning"
+            : "alert";
+
+      return `
+      <div class="material-card">
+        <div class="material-header">
+          <h4>${record.material}</h4>
+          <span class="badge ${badgeClass}">${daysUntilExpiry} day(s)</span>
+        </div>
+        <table class="info-table">
+          <tr>
+            <td>Supplier</td>
+            <td>${record.supplier?.nama || "Not specified"}</td>
+          </tr>
+          <tr>
+            <td>Part Number</td>
+            <td>${record.part_number?.nama || "Not specified"}</td>
+          </tr>
+          <tr>
+            <td>Part Name</td>
+            <td>${record.part_name?.nama || "Not specified"}</td>
+          </tr>
+          <tr>
+            <td>Document Type</td>
+            <td>${record.jenis_dokumen?.nama || "Not specified"}</td>
+          </tr>
+          <tr>
+            <td>Report Date</td>
+            <td>${record.tanggal_report ? new Date(record.tanggal_report).toLocaleDateString("id-ID") : "Not specified"}</td>
+          </tr>
+          <tr>
+            <td>Expire Date</td>
+            <td class="urgent">${new Date(record.tanggal_expire).toLocaleDateString("id-ID")}</td>
+          </tr>
+        </table>
+      </div>
+    `;
+    })
+    .join("");
+
   return `
     <!DOCTYPE html>
     <html>
     <head>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Mill Sheet Expiry Reminder</title>
+      <title>Mill Sheet Expiry Reminder - ${records.length} Materials</title>
       <style>
         body { 
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -278,60 +377,117 @@ function generateEmailHTML(record, daysUntilExpiry) {
           background-color: #f5f5f5;
         }
         .container { 
-          max-width: 600px; 
+          max-width: 700px; 
           margin: 20px auto; 
           background-color: white;
-          border-radius: 8px;
+          border-radius: 12px;
           overflow: hidden;
-          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
         }
         .header { 
           background: linear-gradient(135deg, #dc2626, #b91c1c);
           color: white; 
-          padding: 30px 20px; 
+          padding: 40px 30px; 
           text-align: center; 
         }
         .header h1 {
           margin: 0;
-          font-size: 24px;
+          font-size: 28px;
           font-weight: 700;
+          text-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
         .header p {
-          margin: 8px 0 0 0;
-          font-size: 16px;
-          opacity: 0.9;
+          margin: 12px 0 0 0;
+          font-size: 18px;
+          opacity: 0.95;
         }
         .content { 
-          padding: 30px 20px;
+          padding: 40px 30px;
         }
         .alert { 
-          background: #fef2f2; 
-          border-left: 4px solid #dc2626; 
-          padding: 16px; 
-          margin: 0 0 24px 0;
-          border-radius: 0 4px 4px 0;
+          background: linear-gradient(135deg, #fef2f2, #fee2e2); 
+          border-left: 6px solid #dc2626; 
+          padding: 20px; 
+          margin: 0 0 30px 0;
+          border-radius: 0 8px 8px 0;
         }
         .alert strong {
           color: #dc2626;
+          font-size: 16px;
+        }
+        .summary {
+          background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+          padding: 25px;
+          border-radius: 8px;
+          margin: 30px 0;
+          border: 1px solid #bae6fd;
+        }
+        .summary h4 {
+          margin: 0 0 15px 0;
+          color: #0c4a6e;
+          font-size: 18px;
+        }
+        .summary-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+          gap: 15px;
+          margin-top: 15px;
+        }
+        .summary-item {
+          text-align: center;
+          padding: 15px;
+          background: white;
+          border-radius: 6px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .summary-number {
+          font-size: 24px;
+          font-weight: 700;
+          margin-bottom: 5px;
+        }
+        .critical-number { color: #dc2626; }
+        .warning-number { color: #f59e0b; }
+        .alert-number { color: #3b82f6; }
+        .material-card {
+          margin: 25px 0;
+          border: 1px solid #e5e7eb;
+          border-radius: 12px;
+          overflow: hidden;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+          transition: transform 0.2s ease;
+        }
+        .material-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+        }
+        .material-header {
+          background: linear-gradient(135deg, #f9fafb, #f3f4f6);
+          padding: 20px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          border-bottom: 1px solid #e5e7eb;
+        }
+        .material-header h4 {
+          margin: 0;
+          color: #1f2937;
+          font-size: 18px;
+          font-weight: 600;
         }
         .info-table { 
           width: 100%; 
-          border-collapse: collapse; 
-          margin: 20px 0;
-          border: 1px solid #e5e7eb;
-          border-radius: 6px;
-          overflow: hidden;
+          border-collapse: collapse;
         }
         .info-table td { 
-          padding: 12px 16px; 
-          border-bottom: 1px solid #e5e7eb; 
+          padding: 15px 20px; 
+          border-bottom: 1px solid #f3f4f6; 
         }
-        .info-table td:last-child {
+        .info-table tr:last-child td {
           border-bottom: none;
         }
         .info-table td:first-child { 
           font-weight: 600; 
-          background: #f9fafb; 
+          background: #fafbfc; 
           width: 35%;
           color: #374151;
         }
@@ -339,53 +495,80 @@ function generateEmailHTML(record, daysUntilExpiry) {
           color: #dc2626; 
           font-weight: 700; 
         }
+        .badge {
+          display: inline-block;
+          padding: 8px 16px;
+          color: white;
+          border-radius: 25px;
+          font-size: 14px;
+          font-weight: 600;
+          text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+        .badge.critical {
+          background: linear-gradient(135deg, #dc2626, #b91c1c);
+          animation: pulse 2s infinite;
+        }
+        .badge.warning {
+          background: linear-gradient(135deg, #f59e0b, #d97706);
+        }
+        .badge.alert {
+          background: linear-gradient(135deg, #3b82f6, #2563eb);
+        }
+        @keyframes pulse {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.05); }
+          100% { transform: scale(1); }
+        }
         .actions { 
-          background: #f0f9ff; 
-          padding: 20px; 
-          border-radius: 6px; 
-          margin: 24px 0;
+          background: linear-gradient(135deg, #f0f9ff, #e0f2fe); 
+          padding: 25px; 
+          border-radius: 8px; 
+          margin: 30px 0;
           border: 1px solid #bae6fd;
         }
         .actions h4 {
-          margin: 0 0 12px 0;
+          margin: 0 0 15px 0;
           color: #0c4a6e;
+          font-size: 18px;
         }
         .actions ul {
           margin: 0;
-          padding-left: 20px;
+          padding-left: 25px;
         }
         .actions li {
-          margin: 8px 0;
+          margin: 10px 0;
           color: #374151;
+          font-size: 15px;
         }
         .footer { 
-          background: #1f2937; 
+          background: linear-gradient(135deg, #1f2937, #111827); 
           color: #d1d5db; 
-          padding: 20px; 
+          padding: 30px; 
           text-align: center; 
         }
         .footer p {
           margin: 0;
+          font-size: 16px;
         }
         .footer small {
           opacity: 0.8;
-        }
-        .badge {
-          display: inline-block;
-          padding: 4px 12px;
-          background: #dc2626;
-          color: white;
-          border-radius: 20px;
           font-size: 14px;
-          font-weight: 600;
         }
         .powered-by {
           background: #f8fafc;
-          padding: 12px;
+          padding: 15px;
           text-align: center;
           border-top: 1px solid #e2e8f0;
           font-size: 12px;
           color: #64748b;
+        }
+        .timestamp {
+          background: #f1f5f9;
+          padding: 10px 20px;
+          text-align: center;
+          font-size: 12px;
+          color: #64748b;
+          border-top: 1px solid #e2e8f0;
         }
       </style>
     </head>
@@ -393,66 +576,67 @@ function generateEmailHTML(record, daysUntilExpiry) {
       <div class="container">
         <div class="header">
           <h1>🚨 Mill Sheet Expiry Alert</h1>
-          <p>Automatic Daily Reminder</p>
+          <p>${records.length} Material${records.length > 1 ? "s" : ""} Require${records.length === 1 ? "s" : ""} Immediate Attention</p>
         </div>
         
         <div class="content">
           <div class="alert">
-            <strong>⚠️ Warning:</strong> The following mill sheet will expire in 
-            <span class="badge">${daysUntilExpiry} day(s)</span>
+            <strong>⚠️ Critical Warning:</strong> You have <strong>${records.length} mill sheet${records.length > 1 ? "s" : ""}</strong> expiring in the next 3 days. Immediate action is required to maintain compliance.
           </div>
           
-          <h3 style="margin: 0 0 16px 0; color: #1f2937;">Mill Sheet Details:</h3>
-          <table class="info-table">
-            <tr>
-              <td>Material</td>
-              <td><strong>${record.material}</strong></td>
-            </tr>
-            <tr>
-              <td>Supplier</td>
-              <td>${record.supplier?.nama || "Not specified"}</td>
-            </tr>
-            <tr>
-              <td>Part Number</td>
-              <td>${record.part_number?.nama || "Not specified"}</td>
-            </tr>
-            <tr>
-              <td>Part Name</td>
-              <td>${record.part_name?.nama || "Not specified"}</td>
-            </tr>
-            <tr>
-              <td>Document Type</td>
-              <td>${record.jenis_dokumen?.nama || "Not specified"}</td>
-            </tr>
-            <tr>
-              <td>Report Date</td>
-              <td>${record.tanggal_report ? new Date(record.tanggal_report).toLocaleDateString("id-ID") : "Not specified"}</td>
-            </tr>
-            <tr>
-              <td>Expire Date</td>
-              <td class="urgent">${new Date(record.tanggal_expire).toLocaleDateString("id-ID")}</td>
-            </tr>
-          </table>
+          <div class="summary">
+            <h4>📊 Expiry Summary</h4>
+            <div class="summary-grid">
+              <div class="summary-item">
+                <div class="summary-number critical-number">${expiring1Day}</div>
+                <div>Tomorrow</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-number warning-number">${expiring2Days}</div>
+                <div>2 Days</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-number alert-number">${expiring3Days}</div>
+                <div>3 Days</div>
+              </div>
+            </div>
+          </div>
+          
+          <h3 style="margin: 30px 0 20px 0; color: #1f2937; font-size: 22px;">📋 Material Details (${records.length})</h3>
+          ${materialsHTML}
           
           <div class="actions">
-            <h4>🔧 Required Actions:</h4>
+            <h4>🔧 Required Actions</h4>
             <ul>
-              <li>Review and renew the mill sheet certificate</li>
-              <li>Contact supplier for updated documentation</li>
-              <li>Update system records with new expiry date</li>
-              <li>Verify material compliance status</li>
-              <li>Upload new document to the system</li>
+              <li><strong>Immediate Review:</strong> Verify all expiring materials and their compliance status</li>
+              <li><strong>Contact Suppliers:</strong> Request updated mill sheet certificates from relevant suppliers</li>
+              <li><strong>Document Management:</strong> Upload renewed certificates to the system</li>
+              <li><strong>Quality Assurance:</strong> Ensure all materials meet current specifications</li>
+              <li><strong>System Update:</strong> Update material records with new expiry dates</li>
+              <li><strong>Stakeholder Notification:</strong> Inform relevant teams about material status</li>
             </ul>
           </div>
         </div>
         
         <div class="footer">
           <p><strong>Mill Sheet Management System</strong></p>
-          <p><small>This is an automated daily reminder sent at 23:00 UTC. Please do not reply to this email.</small></p>
+          <p><small>This consolidated report is sent daily at 23:00 UTC. Please do not reply to this email.</small></p>
+        </div>
+        
+        <div class="timestamp">
+          Generated on ${new Date().toLocaleString("id-ID", {
+            timeZone: "Asia/Jakarta",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          })} WIB
         </div>
         
         <div class="powered-by">
-          Automated by Vercel Cron Jobs & Resend
+          Powered by Vercel Cron Jobs & Resend | Consolidated Email System
         </div>
       </div>
     </body>
