@@ -71,20 +71,17 @@ export async function POST(request) {
       });
     }
 
-    // Get email recipients dari users table (admins/managers)
     const { data: users, error: usersError } = await supabase
       .from("users")
-      .select("email, nama, role")
-      .eq("email_verified", true) // Only verified users
-      .in("role", ["admin", "manager"]); // Only admin and manager roles
+      .select("email, nama")
+      .eq("email_verified", true)
+      .eq("email", "eltutorial9560@gmail.com");
 
     let recipients;
     if (usersError) {
       console.error("❌ Error fetching users:", usersError);
       // Fallback to default recipients if query fails
       recipients = [
-        "admin@company.com",
-        "manager@company.com",
         "eltutorial9560@gmail.com", // Your test email
       ];
     } else {

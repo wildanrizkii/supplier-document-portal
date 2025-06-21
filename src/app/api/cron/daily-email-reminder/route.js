@@ -1,25 +1,50 @@
-// app/api/email-reminder/route.js
+// app/api/cron/daily-email-reminder/route.js
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
-import { authOptions } from "../../../../../lib/authOptions";
-import { getServerSession } from "next-auth";
 
-// Initialize Supabase client with service role key
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Initialize Resend
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-export async function POST(request) {
-  try {
-    const session = await getServerSession(authOptions);
+// Handle GET requests from Vercel Cron (default behavior)
+export async function GET(request) {
+  return handleCronRequest(request, "GET");
+}
 
-    console.log("🚀 Email reminder API started");
-    console.log("Session:", session);
+// Handle POST requests for manual testing
+export async function POST(request) {
+  return handleCronRequest(request, "POST");
+}
+
+// Shared function untuk handle cron logic
+async function handleCronRequest(request, method) {
+  try {
+    // Verify this is a cron job request
+    const authHeader = request.headers.get("authorization");
+    const cronSecret = process.env.CRON_SECRET;
+
+    // Check for Vercel cron headers OR manual authorization
+    const isVercelCron = request.headers
+      .get("user-agent")
+      ?.includes("vercel-cron");
+    const isAuthorized = authHeader === `Bearer ${cronSecret}`;
+
+    if (!isVercelCron && !isAuthorized) {
+      console.log("⚠️ Unauthorized cron job attempt");
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    console.log(
+      "🕐 Daily email reminder cron job started at:",
+      new Date().toISOString()
+    );
+    console.log("📡 Request source:", isVercelCron ? "Vercel Cron" : "Manual");
+    console.log("🔧 Request method:", method);
+
     // Calculate date range (3 days from now)
     const today = new Date();
     const threeDaysFromNow = new Date();
@@ -48,7 +73,7 @@ export async function POST(request) {
         jenis_dokumen:id_jenis_dokumen(nama)
       `
       )
-      .eq("status", true) // Only active records
+      .eq("status", true)
       .gte("tanggal_expire", todayStr)
       .lte("tanggal_expire", threeDaysStr);
 
@@ -62,51 +87,61 @@ export async function POST(request) {
 
     console.log(`📊 Found ${expiringRecords?.length || 0} expiring records`);
 
+    // Always log cron job execution
+    const cronLogData = {
+      job_name: "daily-email-reminder",
+      execution_time: new Date().toISOString(),
+      records_found: expiringRecords?.length || 0,
+      status: "started",
+      details: {
+        date_range: { from: todayStr, to: threeDaysStr },
+        method: method,
+        source: isVercelCron ? "vercel-cron" : "manual",
+        expiring_records:
+          expiringRecords?.map((r) => ({
+            material: r.material,
+            expire_date: r.tanggal_expire,
+          })) || [],
+      },
+    };
+
     if (!expiringRecords || expiringRecords.length === 0) {
+      console.log(
+        "✅ No expiring records found - cron job completed successfully"
+      );
+
+      // Log to database
+      const { error: logError } = await supabase.from("cron_logs").insert({
+        ...cronLogData,
+        status: "completed",
+        emails_sent: 0,
+        result: "No expiring records found",
+      });
+
+      if (logError) {
+        console.warn("Failed to log cron execution:", logError);
+      }
+
       return NextResponse.json({
         success: true,
-        message: "No expiring records found",
+        message: "Cron job completed - no expiring records found",
+        timestamp: new Date().toISOString(),
         details: {
           expiring_records: 0,
           emails_sent: 0,
-          emails_failed: 0,
-          recipients: 0,
+          method: method,
+          source: isVercelCron ? "vercel-cron" : "manual",
         },
       });
     }
 
-    // Get email recipients dari users table (admins/managers)
-    const { data: users, error: usersError } = await supabase
-      .from("users")
-      .select("email, nama")
-      .eq("email_verified", true, "email", session?.user?.email); // Only verified users
+    // Email recipients - hanya 1 email
+    const recipients = ["eltutorial9560@gmail.com"];
 
-    let recipients;
-    if (usersError) {
-      console.error("❌ Error fetching users:", usersError);
-      // Fallback to default recipients if query fails
-      recipients = [
-        "eltutorial9560@gmail.com", // Your test email
-      ];
-    } else {
-      // Use emails from database + fallback email
-      recipients = [
-        "eltutorial9560@gmail.com", // Keep for monitoring
-      ];
+    console.log(`📧 Sending emails to: ${recipients.join(", ")}`);
+    console.log(`👤 Single recipient configured`);
 
-      // Remove duplicates
-      recipients = [...new Set(recipients)];
-    }
-
-    if (recipients.length === 0) {
-      console.log("⚠️ No recipients found - using fallback email");
-      recipients = ["eltutorial9560@gmail.com"];
-    }
-
-    console.log(`📧 Preparing to send emails to: ${recipients.join(", ")}`);
-    console.log(`👥 Found ${users?.length || 0} users in database`);
-
-    // Send emails for each expiring record using Resend
+    // Send emails
     const emailPromises = expiringRecords.map(async (record) => {
       const daysUntilExpiry = Math.ceil(
         (new Date(record.tanggal_expire).getTime() - new Date().getTime()) /
@@ -122,17 +157,16 @@ export async function POST(request) {
         subject: emailSubject,
         html: emailHTML,
         tags: [
+          { name: "source", value: isVercelCron ? "vercel-cron" : "manual" },
           { name: "category", value: "mill-sheet-reminder" },
           {
             name: "material",
             value: record.material.replace(/[^a-zA-Z0-9]/g, "_"),
           },
-          { name: "days_until_expiry", value: daysUntilExpiry.toString() },
         ],
       });
     });
 
-    // Wait for all emails to be sent
     const emailResults = await Promise.allSettled(emailPromises);
 
     const successful = emailResults.filter(
@@ -142,59 +176,81 @@ export async function POST(request) {
       (result) => result.status === "rejected"
     ).length;
 
-    // Log failed emails
+    // Log results
     emailResults.forEach((result, index) => {
       if (result.status === "rejected") {
         console.error(`❌ Email ${index + 1} failed:`, result.reason);
       } else {
-        console.log(result);
         console.log(
-          `✅ Email ${index + 1} sent successfully - ID: ${result?.value?.data?.id}`
+          `✅ Email ${index + 1} sent successfully - ID: ${result.value?.data?.id}`
         );
       }
     });
 
-    // Log the activity to Supabase
-    try {
-      const { error: logError } = await supabase.from("email_logs").insert({
-        action: "expiry_reminder",
-        records_count: expiringRecords.length,
-        emails_sent: successful,
-        emails_failed: failed,
-        recipients: recipients,
-        created_at: new Date().toISOString(),
-      });
+    // Log to email_logs table
+    const { error: emailLogError } = await supabase.from("email_logs").insert({
+      action: "cron_expiry_reminder",
+      records_count: expiringRecords.length,
+      emails_sent: successful,
+      emails_failed: failed,
+      recipients: recipients,
+      created_at: new Date().toISOString(),
+    });
 
-      if (logError) {
-        console.warn("⚠️ Failed to log email activity:", logError);
-      } else {
-        console.log("📝 Activity logged to database");
-      }
-    } catch (logError) {
-      console.warn("⚠️ Failed to log email activity:", logError);
+    if (emailLogError) {
+      console.warn("Failed to log email activity:", emailLogError);
     }
+
+    // Log to cron_logs table
+    const { error: cronLogError } = await supabase.from("cron_logs").insert({
+      ...cronLogData,
+      status: "completed",
+      emails_sent: successful,
+      emails_failed: failed,
+      result: `Successfully sent ${successful} emails, ${failed} failed`,
+      completed_at: new Date().toISOString(),
+    });
+
+    if (cronLogError) {
+      console.warn("Failed to log cron execution:", cronLogError);
+    }
+
+    console.log(
+      `🎉 Cron job completed successfully - Sent: ${successful}, Failed: ${failed}`
+    );
 
     return NextResponse.json({
       success: true,
-      message: `Email reminders processed successfully`,
+      message: "Daily email reminder cron job completed successfully",
+      timestamp: new Date().toISOString(),
       details: {
         expiring_records: expiringRecords.length,
         emails_sent: successful,
         emails_failed: failed,
         recipients: recipients.length,
-        failed_emails:
-          failed > 0
-            ? emailResults
-                .filter((result) => result.status === "rejected")
-                .map((result) => result.reason?.message || "Unknown error")
-            : [],
+        method: method,
+        source: isVercelCron ? "vercel-cron" : "manual",
       },
     });
   } catch (error) {
-    console.error("💥 API error:", error);
+    console.error("💥 Cron job error:", error);
+
+    // Log error to database
+    const { error: logError } = await supabase.from("cron_logs").insert({
+      job_name: "daily-email-reminder",
+      execution_time: new Date().toISOString(),
+      status: "failed",
+      result: `Error: ${error.message}`,
+      error_details: error.stack,
+    });
+
+    if (logError) {
+      console.warn("Failed to log cron error:", logError);
+    }
+
     return NextResponse.json(
       {
-        error: "Internal server error",
+        error: "Cron job failed",
         message: error.message,
         timestamp: new Date().toISOString(),
       },
@@ -203,7 +259,7 @@ export async function POST(request) {
   }
 }
 
-// Email HTML template generator
+// Email HTML template
 function generateEmailHTML(record, daysUntilExpiry) {
   return `
     <!DOCTYPE html>
@@ -337,7 +393,7 @@ function generateEmailHTML(record, daysUntilExpiry) {
       <div class="container">
         <div class="header">
           <h1>🚨 Mill Sheet Expiry Alert</h1>
-          <p>Immediate attention required</p>
+          <p>Automatic Daily Reminder</p>
         </div>
         
         <div class="content">
@@ -392,11 +448,11 @@ function generateEmailHTML(record, daysUntilExpiry) {
         
         <div class="footer">
           <p><strong>Mill Sheet Management System</strong></p>
-          <p><small>This is an automated reminder sent daily at 09:00 WIB. Please do not reply to this email.</small></p>
+          <p><small>This is an automated daily reminder sent at 23:00 UTC. Please do not reply to this email.</small></p>
         </div>
         
         <div class="powered-by">
-          Powered by Next.js App Router & Resend
+          Automated by Vercel Cron Jobs & Resend
         </div>
       </div>
     </body>
