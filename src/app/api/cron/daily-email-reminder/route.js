@@ -25,7 +25,7 @@ async function handleCronRequest(request, method) {
   try {
     // Verify this is a cron job request
     const authHeader = request.headers.get("authorization");
-    const cronSecret = process.env.CRON_SECRET;
+    const cronSecret = process.env.NEXT_PUBLIC_CRON_SECRET;
 
     // Check for Vercel cron headers OR manual authorization
     const isVercelCron = request.headers
