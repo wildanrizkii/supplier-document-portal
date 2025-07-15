@@ -89,7 +89,7 @@ serve(async (req) => {
     const recipients = [
       'admin@company.com',
       'manager@company.com',
-      'eltutorial9560@gmail.com', // Your test email
+      'wildanrizki9560@gmail.com', // Your test email
     ]
 
     console.log(`📧 Sending emails to: ${recipients.join(', ')}`)

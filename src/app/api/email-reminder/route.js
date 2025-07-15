@@ -1,7 +1,7 @@
 // app/api/email-reminder/route.js
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 
 // Initialize Supabase client with service role key
 const supabase = createClient(
@@ -9,8 +9,16 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Initialize Resend
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Konfigurasi email transporter
+const transporter = nodemailer.createTransporter({
+  host: process.env.SMTP_HOST, // e.g., smtp.gmail.com
+  port: 587,
+  secure: false,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
 
 export async function POST(request) {
   try {
@@ -75,21 +83,16 @@ export async function POST(request) {
       .from("users")
       .select("email, nama")
       .eq("email_verified", true)
-      .eq("email", "eltutorial9560@gmail.com");
+      .eq("email", "wildanrizki9560@gmail.com");
 
     let recipients;
     if (usersError) {
       console.error("❌ Error fetching users:", usersError);
       // Fallback to default recipients if query fails
-      recipients = [
-        "eltutorial9560@gmail.com", // Your test email
-      ];
+      recipients = "wildanrizki9560@gmail.com";
     } else {
       // Use emails from database + fallback email
-      recipients = [
-        ...users.map((user) => user.email),
-        "eltutorial9560@gmail.com", // Keep for monitoring
-      ];
+      recipients = "wildanrizki9560@gmail.com";
 
       // Remove duplicates
       recipients = [...new Set(recipients)];
@@ -97,13 +100,10 @@ export async function POST(request) {
 
     if (recipients.length === 0) {
       console.log("⚠️ No recipients found - using fallback email");
-      recipients = ["eltutorial9560@gmail.com"];
+      recipients = ["wildanrizki9560@gmail.com"];
     }
 
-    console.log(`📧 Preparing to send emails to: ${recipients.join(", ")}`);
-    console.log(`👥 Found ${users?.length || 0} users in database`);
-
-    // Send emails for each expiring record using Resend
+    // Send emails for each expiring record using Nodemailer
     const emailPromises = expiringRecords.map(async (record) => {
       const daysUntilExpiry = Math.ceil(
         (new Date(record.tanggal_expire).getTime() - new Date().getTime()) /
@@ -113,19 +113,11 @@ export async function POST(request) {
       const emailHTML = generateEmailHTML(record, daysUntilExpiry);
       const emailSubject = `🚨 URGENT: Mill Sheet Expiring in ${daysUntilExpiry} day(s) - ${record.material}`;
 
-      return await resend.emails.send({
-        from: "Mill Sheet System <onboarding@resend.dev>",
+      return await transporter.sendMail({
+        from: `"Mill Sheet System" <${process.env.SMTP_FROM}>`,
         to: recipients,
         subject: emailSubject,
         html: emailHTML,
-        tags: [
-          { name: "category", value: "mill-sheet-reminder" },
-          {
-            name: "material",
-            value: record.material.replace(/[^a-zA-Z0-9]/g, "_"),
-          },
-          { name: "days_until_expiry", value: daysUntilExpiry.toString() },
-        ],
       });
     });
 
@@ -145,7 +137,7 @@ export async function POST(request) {
         console.error(`❌ Email ${index + 1} failed:`, result.reason);
       } else {
         console.log(
-          `✅ Email ${index + 1} sent successfully - ID: ${result.value?.data?.id}`
+          `✅ Email ${index + 1} sent successfully - ID: ${result.value?.messageId}`
         );
       }
     });
@@ -392,7 +384,7 @@ function generateEmailHTML(record, daysUntilExpiry) {
         </div>
         
         <div class="powered-by">
-          Powered by Next.js App Router & Resend
+          Powered by Next.js App Router & Nodemailer
         </div>
       </div>
     </body>
