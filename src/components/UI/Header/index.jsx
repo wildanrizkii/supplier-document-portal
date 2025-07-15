@@ -30,14 +30,10 @@ const Header = ({ toggleSidebar, toggleCollapse, isCollapsed = true }) => {
     }
 
     const pathLabels = {
-      "manage-part": "Manage Part",
-      "main-part": "Main Part",
-      "part-no-induk": "Part No Induk",
-      cmw: "Part No CMW",
-      laporan: "Laporan",
-      settings: "Pengaturan",
-      profile: "Profile",
-      about: "Tentang",
+      manage: "Manage",
+      "jenis-dokumen": "Jenis Dokumen",
+      pengaturan: "Pengaturan",
+      tentang: "Tentang",
     };
 
     const breadcrumbs = [{ label: "Dashboard", href: "/dashboard" }];
