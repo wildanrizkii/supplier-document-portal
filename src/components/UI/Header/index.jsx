@@ -32,6 +32,8 @@ const Header = ({ toggleSidebar, toggleCollapse, isCollapsed = true }) => {
     const pathLabels = {
       manage: "Manage",
       "jenis-dokumen": "Jenis Dokumen",
+      "part-name": "Part Name",
+      "part-number": "Part Number",
       pengaturan: "Pengaturan",
       tentang: "Tentang",
     };

@@ -33,9 +33,9 @@ const NAVIGATION_ITEMS = [
     roles: ["Admin"],
   },
   {
-    name: "Manage Part",
-    href: "/manage-part",
-    subpaths: ["/manage-part"],
+    name: "Manage",
+    href: "/manage",
+    subpaths: ["/manage"],
     icon: <VscTools size={22} />,
     roles: ["Admin"],
     hasSubmenu: true,
