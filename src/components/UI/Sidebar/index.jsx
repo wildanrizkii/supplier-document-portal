@@ -4,7 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { MdOutlineSpaceDashboard } from "react-icons/md";
+import { HiOutlineDocumentText } from "react-icons/hi";
 import { LuCodesandbox, LuBox } from "react-icons/lu";
+import { IoDocumentTextOutline } from "react-icons/io5";
+import { FaListOl, FaListCheck } from "react-icons/fa6";
+import { LuUsers } from "react-icons/lu";
 import {
   IoChevronUpOutline,
   IoChevronDownOutline,
@@ -14,12 +18,8 @@ import {
   TbLayoutSidebarLeftCollapse,
   TbLayoutSidebarRightCollapse,
 } from "react-icons/tb";
-import { LuPackage, LuHammer, LuRuler } from "react-icons/lu";
-import { PiToolbox } from "react-icons/pi";
 import { VscTools } from "react-icons/vsc";
 import { FiInfo } from "react-icons/fi";
-import { AiOutlineDatabase } from "react-icons/ai";
-import { LiaDatabaseSolid } from "react-icons/lia";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
@@ -43,22 +43,22 @@ const NAVIGATION_ITEMS = [
       {
         name: "Jenis Dokumen",
         href: "/manage/jenis-dokumen",
-        icon: <PiToolbox size={22} />,
+        icon: <IoDocumentTextOutline size={22} />,
       },
       {
         name: "Part Number",
         href: "/manage/part-number",
-        icon: <LuBox size={22} />,
+        icon: <FaListOl size={18} />,
       },
       {
         name: "Part Name",
         href: "/manage/part-name",
-        icon: <LuCodesandbox size={22} />,
+        icon: <FaListCheck size={18} />,
       },
       {
         name: "Supplier",
         href: "/manage/supplier",
-        icon: <LiaDatabaseSolid size={22} />,
+        icon: <LuUsers size={20} />,
       },
     ],
   },
