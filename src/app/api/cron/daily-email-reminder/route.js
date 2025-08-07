@@ -34,7 +34,7 @@ export async function POST(request) {
       smtp_from: process.env.SMTP_FROM,
       smtp_user: process.env.SMTP_USER,
       smtp_host: process.env.SMTP_HOST,
-      recipients: "wildanrizki9560@gmail.com",
+      recipients: "",
       timestamp: new Date().toISOString(),
       app_url: process.env.NEXT_PUBLIC_APP_URL,
     });
@@ -44,9 +44,9 @@ export async function POST(request) {
   if (body.test === "send_test_email") {
     try {
       const testResult = await transporter.sendMail({
-        from: `"Test Sistem Portal Dokumen" <${process.env.SMTP_FROM}>`,
-        to: "wildanrizki9560@gmail.com",
-        subject: "Test Email - Sistem Pengingat Harian",
+        from: `"Sistem Portal Dokumen" <${process.env.SMTP_FROM}>`,
+        to: "",
+        subject: "Email - Sistem Pengingat Harian",
         html: `
           <h2>Test Email Berhasil</h2>
           <p><strong>From:</strong> ${process.env.SMTP_FROM}</p>
@@ -132,6 +132,8 @@ async function handleCronRequest(request, method) {
         tanggal_report,
         tanggal_expire,
         status,
+        id_user,
+        email:users(email),
         supplier:id_supplier(nama),
         part_name:id_part_name(nama),
         part_number:id_part_number(nama),
@@ -151,6 +153,99 @@ async function handleCronRequest(request, method) {
     }
 
     console.log(`📊 Found ${expiringRecords?.length || 0} expiring records`);
+
+    function delay(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    function groupByUser(records) {
+      const grouped = {};
+      for (const record of records) {
+        const userId = record.id_user;
+        const email = record.email;
+        if (!email) continue;
+
+        if (!grouped[userId]) {
+          grouped[userId] = {
+            email,
+            records: [],
+          };
+        }
+
+        grouped[userId].records.push(record);
+      }
+      return grouped;
+    }
+
+    const groupedByUser = groupByUser(expiringRecords);
+    console.log(groupedByUser);
+    let totalEmailsSent = 0;
+    let totalEmailsFailed = 0;
+
+    for (const [
+      userId,
+      {
+        email: { email },
+        records,
+      },
+    ] of Object.entries(groupedByUser)) {
+      try {
+        const emailHTML = generateConsolidatedEmailHTML(records);
+        const emailSubject = `🚨 Peringatan: ${records.length} Dokumen Anda Akan Kedaluwarsa`;
+
+        const emailResult = await transporter.sendMail({
+          from: `"Portal Dokumen" <${process.env.SMTP_FROM}>`,
+          to: email,
+          subject: emailSubject,
+          html: emailHTML,
+        });
+
+        totalEmailsSent++;
+
+        await supabase.from("email_logs").insert({
+          action: "cron_expiry_reminder_user",
+          id_user: userId,
+          records_count: records.length,
+          emails_sent: 1,
+          emails_failed: 0,
+          recipients: email,
+          created_at: new Date().toISOString(),
+          details: {
+            email_type: "per_user",
+            materials: records.map((r) => r.material),
+            message_id: emailResult?.messageId || null,
+          },
+        });
+
+        // delay 5 detik sebelum kirim email berikutnya
+        await delay(5000);
+      } catch (emailError) {
+        totalEmailsFailed++;
+
+        await supabase.from("email_logs").insert({
+          action: "cron_expiry_reminder_user",
+          id_user: userId,
+          records_count: records.length,
+          emails_sent: 0,
+          emails_failed: 1,
+          recipients: email,
+          created_at: new Date().toISOString(),
+          details: {
+            error: emailError.message,
+            email_type: "per_user",
+            materials: records.map((r) => r.material),
+          },
+        });
+
+        console.error(
+          `❌ Gagal mengirim email ke ${email}:`,
+          emailError.message
+        );
+
+        // Delay juga setelah error agar tetap konsisten
+        await delay(5000);
+      }
+    }
 
     // Always log cron job execution
     const cronLogData = {
@@ -200,77 +295,26 @@ async function handleCronRequest(request, method) {
       });
     }
 
-    // Email recipients - target yang benar
-    const recipients = "wildanrizki9560@gmail.com";
-
-    // DEBUG: Log detail email yang akan dikirim
-    console.log("📧 Email Configuration:");
-    console.log("From:", `"Portal Dokumen" <${process.env.SMTP_FROM}>`);
-    console.log("To:", recipients);
-    console.log("Records to include:", expiringRecords.length);
-
-    // Send single consolidated email with all expiring records
-    let emailResult;
-    let successful = 0;
-    let failed = 0;
-
-    try {
-      const emailHTML = generateConsolidatedEmailHTML(expiringRecords);
-      const emailSubject = `🚨 PENTING: ${expiringRecords.length} Dokumen Akan Segera Kedaluwarsa`;
-
-      console.log(
-        `📤 Sending consolidated email with subject: ${emailSubject}`
-      );
-
-      // Send email using nodemailer
-      emailResult = await transporter.sendMail({
-        from: `"Portal Dokumen" <${process.env.SMTP_FROM}>`,
-        to: recipients,
-        subject: emailSubject,
-        html: emailHTML,
-      });
-
-      if (emailResult.messageId) {
-        successful = 1;
-        console.log(
-          `✅ Consolidated email sent successfully - Message ID: ${emailResult.messageId}`
-        );
-        console.log(`📬 Email response: ${emailResult.response}`);
-        console.log(`📧 Email envelope:`, emailResult.envelope);
-      } else {
-        failed = 1;
-        console.error(`❌ Failed to send consolidated email:`, emailResult);
-      }
-    } catch (emailError) {
-      failed = 1;
-      console.error(`❌ Email sending error:`, {
-        message: emailError.message,
-        code: emailError.code,
-        response: emailError.response,
-        responseCode: emailError.responseCode,
-      });
-    }
-
     // Log to email_logs table
-    const { error: emailLogError } = await supabase.from("email_logs").insert({
-      action: "cron_expiry_reminder_consolidated",
-      records_count: expiringRecords.length,
-      emails_sent: successful,
-      emails_failed: failed,
-      recipients: recipients,
-      created_at: new Date().toISOString(),
-      details: {
-        email_type: "consolidated",
-        materials: expiringRecords.map((r) => r.material),
-        message_id: emailResult?.messageId || null,
-        smtp_from: process.env.SMTP_FROM,
-        smtp_user: process.env.SMTP_USER,
-      },
-    });
+    // const { error: emailLogError } = await supabase.from("email_logs").insert({
+    //   action: "cron_expiry_reminder_consolidated",
+    //   records_count: expiringRecords.length,
+    //   emails_sent: successful,
+    //   emails_failed: failed,
+    //   recipients: recipients || "",
+    //   created_at: new Date().toISOString(),
+    //   details: {
+    //     email_type: "consolidated",
+    //     materials: expiringRecords.map((r) => r.material),
+    //     message_id: emailResult?.messageId || null,
+    //     smtp_from: process.env.SMTP_FROM,
+    //     smtp_user: process.env.SMTP_USER,
+    //   },
+    // });
 
-    if (emailLogError) {
-      console.warn("Failed to log email activity:", emailLogError);
-    }
+    // if (emailLogError) {
+    //   console.warn("Failed to log email activity:", emailLogError);
+    // }
 
     // Log to cron_logs table
     const { error: cronLogError } = await supabase.from("cron_logs").insert({
@@ -303,7 +347,7 @@ async function handleCronRequest(request, method) {
         expiring_records: expiringRecords.length,
         emails_sent: successful,
         emails_failed: failed,
-        recipients: recipients,
+        recipients: recipients || "",
         email_type: "consolidated",
         method: method,
         source: isVercelCron ? "vercel-cron" : "manual",

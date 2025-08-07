@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import supabase from "@/app/utils/db";
 import toast from "react-hot-toast";
+import { useSession } from "next-auth/react";
+import dayjs from "dayjs";
 
 // Simple Select Dropdown Component
 const SimpleSelect = ({
@@ -209,7 +211,7 @@ const MillSheet = () => {
     material: "",
     tanggal_report: "",
     tanggal_expire: "",
-    status: true, // Default to Open (true)
+    status: false,
     id_supplier: "",
     id_jenis_dokumen: "",
     id_part_number: "",
@@ -225,6 +227,9 @@ const MillSheet = () => {
     field: "material",
     order: "asc",
   });
+
+  const { data: session } = useSession();
+  // console.log(session);
 
   // Fetch reference data
   const fetchReferenceData = async () => {
@@ -280,6 +285,7 @@ const MillSheet = () => {
           supplier:id_supplier(nama)
         `
         )
+        .eq("id_user", session?.user?.id)
         .order("tanggal_report", { ascending: false });
 
       if (error) throw error;
@@ -301,7 +307,7 @@ const MillSheet = () => {
         supplier_name: row.supplier?.nama || "-",
       }));
 
-      setAllData(materialControlData);
+      setAllData(materialControlData || []);
     } catch (error) {
       toast.error("Error fetching data: " + error.message);
     } finally {
@@ -310,9 +316,11 @@ const MillSheet = () => {
   };
 
   useEffect(() => {
-    fetchReferenceData();
-    fetchMaterialControl();
-  }, []);
+    if (session?.user?.id) {
+      fetchReferenceData();
+      fetchMaterialControl();
+    }
+  }, [session]);
 
   // Filter and sort data
   const filteredAndSortedData = useMemo(() => {
@@ -393,7 +401,7 @@ const MillSheet = () => {
       material: "",
       tanggal_report: "",
       tanggal_expire: "",
-      status: true, // Default to Open
+      status: false, // Default to Open
       id_supplier: "",
       id_jenis_dokumen: "",
       id_part_number: "",
@@ -520,17 +528,17 @@ const MillSheet = () => {
         }
       }
 
-      // Prepare data for insertion/update
       let processedData = {
         material: formData.material.trim(),
-        tanggal_report: formData.tanggal_report || null,
-        tanggal_expire: formData.tanggal_expire || null,
+        tanggal_report: today,
+        tanggal_expire: formData.tanggal_expire,
         status: Boolean(formData.status), // Convert to boolean
-        document_url: documentUrl,
-        id_supplier: null,
+        document_url: documentUrl || null,
+        id_supplier: session?.user?.id_supplier,
         id_jenis_dokumen: null,
         id_part_number: null,
         id_part_name: null,
+        id_user: session?.user?.id,
       };
 
       // Helper function to process reference data
@@ -571,11 +579,11 @@ const MillSheet = () => {
         partNumberOptions,
         "part_number"
       );
-      processedData.id_supplier = await processReferenceData(
-        formData.id_supplier,
-        supplierOptions,
-        "supplier"
-      );
+      // processedData.id_supplier = await processReferenceData(
+      //   formData.id_supplier,
+      //   supplierOptions,
+      //   "supplier"
+      // );
 
       // Insert or update material control data
       console.log("Processed data before insert/update:", processedData);
@@ -700,6 +708,8 @@ const MillSheet = () => {
     if (!dateString) return "-";
     return new Date(dateString).toLocaleDateString("id-ID");
   };
+
+  const today = dayjs().format("YYYY-MM-DD");
 
   return (
     <div className="w-full max-w-7xl mx-auto bg-gray-50 h-fit overflow-y-auto">
@@ -1079,7 +1089,7 @@ const MillSheet = () => {
             </div>
 
             {/* Supplier */}
-            <div>
+            {/* <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Supplier
               </label>
@@ -1090,7 +1100,7 @@ const MillSheet = () => {
                 placeholder="Select supplier..."
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
-            </div>
+            </div> */}
 
             {/* Part Name */}
             <div>
@@ -1125,7 +1135,7 @@ const MillSheet = () => {
             </div>
 
             {/* Tanggal Report */}
-            <div>
+            {/* <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Report Date
               </label>
@@ -1137,7 +1147,7 @@ const MillSheet = () => {
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
-            </div>
+            </div> */}
 
             {/* Tanggal Expire */}
             <div>
@@ -1155,7 +1165,7 @@ const MillSheet = () => {
             </div>
 
             {/* Status */}
-            <div>
+            {/* <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Status
               </label>
@@ -1169,7 +1179,7 @@ const MillSheet = () => {
                 <option value={true}>Open</option>
                 <option value={false}>Close</option>
               </select>
-            </div>
+            </div> */}
 
             {/* File Upload */}
             <div className="md:col-span-2">
@@ -1222,8 +1232,8 @@ const MillSheet = () => {
                   ? "Saving..."
                   : "Updating..."
                 : showAddModal
-                ? "Save"
-                : "Update"}
+                  ? "Save"
+                  : "Update"}
             </button>
           </div>
         </div>

@@ -19,6 +19,8 @@ const Register = () => {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
+    supplier: "",
+    no_hp: "",
     password: "",
     confirmPassword: "",
   });
@@ -29,6 +31,7 @@ const Register = () => {
   const [isResendLoading, setIsResendLoading] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
+  const [suppliers, setSuppliers] = useState([]);
 
   // Spam protection states
   const [lastResendTime, setLastResendTime] = useState(null);
@@ -135,10 +138,18 @@ const Register = () => {
   };
 
   const validateForm = () => {
-    const { name, email, password, confirmPassword } = formData;
+    const { name, email, no_hp, supplier, password, confirmPassword } =
+      formData;
 
     // Check if all fields are filled
-    if (!name || !email || !password || !confirmPassword) {
+    if (
+      !name ||
+      !email ||
+      !no_hp ||
+      !supplier ||
+      !password ||
+      !confirmPassword
+    ) {
       return "Mohon lengkapi semua kolom!";
     }
 
@@ -310,9 +321,27 @@ const Register = () => {
     setResendAttempts(attempts.length);
   };
 
+  // Fungsi untuk fetch data supplier
+
+  const fetchSuppliers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("supplier")
+        .select("id_supplier, nama");
+      if (error) throw error;
+      setSuppliers(data);
+    } catch (error) {
+      console.error("Error fetching suppliers:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchSuppliers();
+  }, []);
+
   // Fungsi untuk handle register dengan Supabase
   const handleRegisterWithSupabase = async () => {
-    const { name, email, password } = formData;
+    const { name, email, no_hp, supplier, password } = formData;
 
     // Cek apakah email sudah terdaftar
     const { data: existingUser, error: checkError } = await supabase
@@ -351,6 +380,9 @@ const Register = () => {
           {
             nama: name.trim(),
             email: email.toLowerCase().trim(),
+            no_hp: no_hp.trim(),
+            id_supplier: supplier || null,
+            role: "Supplier",
             password: hashedPassword,
             email_verified: false,
             verification_token: verificationToken,
@@ -639,6 +671,58 @@ const Register = () => {
 
           {/* Form */}
           <div className="space-y-5">
+            {/* Supplier Field */}
+            <div className="relative">
+              <label className="block text-sm font-medium text-slate-700 mb-3">
+                Supplier
+              </label>
+              <div className="relative">
+                <select
+                  id="supplier"
+                  value={formData.supplier}
+                  onChange={(e) =>
+                    handleInputChange("supplier", e.target.value)
+                  }
+                  className={`w-full h-12 px-4 pr-10 border rounded-xl bg-white appearance-none focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all duration-200 ${
+                    error
+                      ? "border-red-300 focus:ring-red-500"
+                      : "border-slate-200 hover:border-slate-300"
+                  }`}
+                  onKeyPress={handleKeyPress}
+                  required
+                >
+                  <option value="" disabled>
+                    Pilih supplier
+                  </option>
+                  {suppliers.map((supplier) => (
+                    <option
+                      key={supplier.id_supplier}
+                      value={supplier.id_supplier}
+                    >
+                      {supplier.nama}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Custom dropdown icon */}
+                <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                  <svg
+                    className="w-4 h-4 text-slate-500"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
             {/* Name Field */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-3">
@@ -679,6 +763,36 @@ const Register = () => {
                 placeholder="Masukkan email Anda"
                 required
               />
+            </div>
+
+            {/* No HP Field */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-3">
+                Nomor HP
+              </label>
+              <div
+                className={`flex items-center rounded-xl border transition-all duration-200 overflow-hidden ${
+                  error
+                    ? "border-red-300 focus-within:ring-red-500"
+                    : "border-slate-200 hover:border-slate-300"
+                }`}
+              >
+                <span className="pl-4 select-none">+62</span>
+                <input
+                  id="no_hp"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={formData.no_hp}
+                  onChange={(e) => {
+                    const onlyNums = e.target.value.replace(/\D/g, "");
+                    handleInputChange("no_hp", onlyNums);
+                  }}
+                  className="w-full h-12 pr-4 pl-1.5 pb-0.5 focus:outline-none"
+                  placeholder="89612345678"
+                  required
+                />
+              </div>
             </div>
 
             {/* Password Field */}
