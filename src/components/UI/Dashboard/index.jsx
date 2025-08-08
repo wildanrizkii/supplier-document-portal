@@ -17,6 +17,7 @@ import {
   FileText,
   Download,
   Calendar,
+  Filter,
 } from "lucide-react";
 import supabase from "@/app/utils/db";
 import toast from "react-hot-toast";
@@ -219,7 +220,7 @@ const MillSheet = () => {
     document_url: "",
   });
 
-  // Search, pagination, and sorting states
+  // Search, pagination, sorting, and filter states
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -228,8 +229,10 @@ const MillSheet = () => {
     order: "asc",
   });
 
+  // NEW: Filter state for document type
+  const [documentTypeFilter, setDocumentTypeFilter] = useState("");
+
   const { data: session } = useSession();
-  // console.log(session);
 
   // Fetch reference data
   const fetchReferenceData = async () => {
@@ -265,28 +268,36 @@ const MillSheet = () => {
   const fetchMaterialControl = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+
+      let query = supabase
         .from("material_control")
         .select(
           `
-          id_material_control,
-          material,
-          tanggal_report,
-          tanggal_expire,
-          status,
-          id_supplier,
-          id_jenis_dokumen,
-          id_part_number,
-          id_part_name,
-          document_url,
-          jenis_dokumen:id_jenis_dokumen(nama),
-          part_name:id_part_name(nama),
-          part_number:id_part_number(nama),
-          supplier:id_supplier(nama)
-        `
+        id_material_control,
+        material,
+        tanggal_report,
+        tanggal_expire,
+        status,
+        id_supplier,
+        id_jenis_dokumen,
+        id_part_number,
+        id_part_name,
+        id_user,
+        document_url,
+        jenis_dokumen:id_jenis_dokumen(nama),
+        part_name:id_part_name(nama),
+        part_number:id_part_number(nama),
+        supplier:id_supplier(nama),
+        users:id_user(nama, email, no_hp)
+      `
         )
-        .eq("id_user", session?.user?.id)
         .order("tanggal_report", { ascending: false });
+
+      if (session?.user?.role === "Supplier") {
+        query = query.eq("id_user", session?.user?.id);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -305,6 +316,9 @@ const MillSheet = () => {
         part_name_name: row.part_name?.nama || "-",
         part_number_name: row.part_number?.nama || "-",
         supplier_name: row.supplier?.nama || "-",
+        user_name: row.users?.nama || "-",
+        user_email: row.users?.email || "-",
+        user_no_hp: row.users?.no_hp || "-",
       }));
 
       setAllData(materialControlData || []);
@@ -322,10 +336,24 @@ const MillSheet = () => {
     }
   }, [session]);
 
-  // Filter and sort data
+  // NEW: Get unique document types for filter options
+  const documentTypeFilterOptions = useMemo(() => {
+    const uniqueDocTypes = [
+      ...new Set(
+        allData
+          .map((item) => item.jenis_dokumen_name)
+          .filter((name) => name && name !== "-")
+      ),
+    ];
+
+    return uniqueDocTypes.map((name) => ({ nama: name, id: name }));
+  }, [allData]);
+
+  // MODIFIED: Filter and sort data with document type filter
   const filteredAndSortedData = useMemo(() => {
     let filtered = allData;
 
+    // Apply search filter
     if (searchTerm.trim()) {
       filtered = filtered.filter(
         (item) =>
@@ -340,6 +368,14 @@ const MillSheet = () => {
       );
     }
 
+    // NEW: Apply document type filter
+    if (documentTypeFilter && documentTypeFilter !== "") {
+      filtered = filtered.filter(
+        (item) => item.jenis_dokumen_name === documentTypeFilter
+      );
+    }
+
+    // Apply sorting
     filtered = [...filtered].sort((a, b) => {
       const aValue = a[sortConfig.field] || "";
       const bValue = b[sortConfig.field] || "";
@@ -364,7 +400,7 @@ const MillSheet = () => {
     });
 
     return filtered;
-  }, [allData, searchTerm, sortConfig]);
+  }, [allData, searchTerm, documentTypeFilter, sortConfig]);
 
   // Pagination calculations
   const totalPages = Math.ceil(filteredAndSortedData.length / itemsPerPage);
@@ -372,9 +408,20 @@ const MillSheet = () => {
   const endIndex = startIndex + itemsPerPage;
   const currentData = filteredAndSortedData.slice(startIndex, endIndex);
 
+  // Reset page when filters change
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, sortConfig]);
+  }, [searchTerm, documentTypeFilter, sortConfig]);
+
+  // NEW: Clear all filters function
+  const clearFilters = () => {
+    setSearchTerm("");
+    setDocumentTypeFilter("");
+  };
+
+  // NEW: Check if any filters are active
+  const hasActiveFilters =
+    searchTerm.trim() !== "" || documentTypeFilter !== "";
 
   // Sort handler
   const handleSort = (field) => {
@@ -579,11 +626,6 @@ const MillSheet = () => {
         partNumberOptions,
         "part_number"
       );
-      // processedData.id_supplier = await processReferenceData(
-      //   formData.id_supplier,
-      //   supplierOptions,
-      //   "supplier"
-      // );
 
       // Insert or update material control data
       console.log("Processed data before insert/update:", processedData);
@@ -716,11 +758,9 @@ const MillSheet = () => {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-4">
-              <h2 className="text-xl font-semibold text-gray-900">
-                Mill Sheet
-              </h2>
+              <h2 className="text-xl font-semibold text-gray-900">Documents</h2>
               <span className="text-sm text-gray-500">
                 {filteredAndSortedData.length} Items
               </span>
@@ -751,6 +791,61 @@ const MillSheet = () => {
               </div>
             </div>
           </div>
+
+          {/* NEW: Filter Section */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              {/* Document Type Filter */}
+              <div className="flex items-center space-x-2">
+                <Filter size={16} className="text-gray-400" />
+                <label className="text-sm font-medium text-gray-700">
+                  Document Type:
+                </label>
+                <select
+                  value={documentTypeFilter}
+                  onChange={(e) => setDocumentTypeFilter(e.target.value)}
+                  className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">All Document Types</option>
+                  {documentTypeFilterOptions.map((option) => (
+                    <option key={option.id} value={option.nama}>
+                      {option.nama}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Clear Filters Button */}
+              {hasActiveFilters && (
+                <button
+                  onClick={clearFilters}
+                  className="flex items-center space-x-1 px-3 py-1 text-sm text-gray-600 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                >
+                  <X size={14} />
+                  <span>Clear Filters</span>
+                </button>
+              )}
+            </div>
+
+            {/* Active Filters Display */}
+            {hasActiveFilters && (
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-500">Active filters:</span>
+                <div className="flex space-x-2">
+                  {searchTerm && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
+                      Search: "{searchTerm}"
+                    </span>
+                  )}
+                  {documentTypeFilter && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+                      Type: {documentTypeFilter}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Table */}
@@ -769,6 +864,15 @@ const MillSheet = () => {
                   >
                     <span>Supplier</span>
                     {getSortIcon("supplier_name")}
+                  </button>
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <button
+                    onClick={() => handleSort("jenis_dokumen_name")}
+                    className="flex items-center space-x-1 hover:text-gray-700 transition-colors duration-150"
+                  >
+                    <span>Document Type</span>
+                    {getSortIcon("jenis_dokumen_name")}
                   </button>
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -848,6 +952,14 @@ const MillSheet = () => {
                         title={item.supplier_name}
                       >
                         {item.supplier_name}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      <div
+                        className="truncate max-w-xs"
+                        title={item.jenis_dokumen_name}
+                      >
+                        {item.jenis_dokumen_name}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900">
@@ -985,11 +1097,13 @@ const MillSheet = () => {
               </svg>
             </div>
             <h3 className="text-sm font-medium text-gray-500">
-              {searchTerm ? "No matching results found" : "No data available"}
+              {hasActiveFilters
+                ? "No matching results found"
+                : "No data available"}
             </h3>
             <p className="text-sm text-gray-400 mt-1">
-              {searchTerm
-                ? `Try adjusting your search term "${searchTerm}"`
+              {hasActiveFilters
+                ? "Try adjusting your filters or search terms"
                 : "Data will appear here after being added."}
             </p>
           </div>
@@ -1088,20 +1202,6 @@ const MillSheet = () => {
               />
             </div>
 
-            {/* Supplier */}
-            {/* <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Supplier
-              </label>
-              <SimpleSelect
-                value={formData.id_supplier}
-                onChange={(value) => handleFormDataChange("id_supplier", value)}
-                options={supplierOptions}
-                placeholder="Select supplier..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div> */}
-
             {/* Part Name */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1134,21 +1234,6 @@ const MillSheet = () => {
               />
             </div>
 
-            {/* Tanggal Report */}
-            {/* <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Report Date
-              </label>
-              <input
-                type="date"
-                value={formData.tanggal_report}
-                onChange={(e) =>
-                  handleFormDataChange("tanggal_report", e.target.value)
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div> */}
-
             {/* Tanggal Expire */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1163,23 +1248,6 @@ const MillSheet = () => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
-
-            {/* Status */}
-            {/* <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Status
-              </label>
-              <select
-                value={formData.status}
-                onChange={(e) =>
-                  handleFormDataChange("status", e.target.value === "true")
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value={true}>Open</option>
-                <option value={false}>Close</option>
-              </select>
-            </div> */}
 
             {/* File Upload */}
             <div className="md:col-span-2">
@@ -1307,6 +1375,30 @@ const MillSheet = () => {
                   </h5>
                   <p className="mt-1 text-sm text-gray-900">
                     {selectedItem?.part_name_name}
+                  </p>
+                </div>
+                <div>
+                  <h5 className="text-sm font-medium text-gray-500">
+                    Supplier User Name
+                  </h5>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {selectedItem?.user_name}
+                  </p>
+                </div>
+                <div>
+                  <h5 className="text-sm font-medium text-gray-500">
+                    Supplier User Email
+                  </h5>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {selectedItem?.user_email}
+                  </p>
+                </div>
+                <div>
+                  <h5 className="text-sm font-medium text-gray-500">
+                    Supplier User Phone Number
+                  </h5>
+                  <p className="mt-1 text-sm text-gray-900">
+                    +62 {selectedItem?.user_no_hp}
                   </p>
                 </div>
               </div>

@@ -23,21 +23,20 @@ import { FiInfo } from "react-icons/fi";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
-// Constants untuk menu navigasi
 const NAVIGATION_ITEMS = [
   {
     name: "Dashboard",
     href: "/dashboard",
     subpaths: ["/"],
     icon: <MdOutlineSpaceDashboard size={22} />,
-    roles: ["Admin"],
+    roles: ["Author", "Supplier"],
   },
   {
     name: "Manage",
     href: "/manage",
     subpaths: ["/manage"],
     icon: <VscTools size={22} />,
-    roles: ["Admin"],
+    roles: ["Author"],
     hasSubmenu: true,
     submenu: [
       {
@@ -67,14 +66,14 @@ const NAVIGATION_ITEMS = [
     href: "/pengaturan",
     subpaths: ["/pengaturan/users"],
     icon: <IoSettingsOutline size={22} />,
-    roles: ["Admin"],
+    roles: ["Author", "Supplier"],
   },
   {
     name: "Tentang",
     href: "/tentang",
     subpaths: ["/tentang"],
     icon: <FiInfo size={22} />,
-    roles: ["Admin"],
+    roles: ["Author", "Supplier"],
   },
 ];
 
@@ -168,7 +167,7 @@ const Sidebar = ({
 
   // Memoize filtered navigation untuk optimasi performa
   const filteredNavigation = useMemo(() => {
-    const userRole = "Admin";
+    const userRole = session?.user?.role;
     if (!userRole) return [];
 
     return NAVIGATION_ITEMS.filter((item) => item.roles.includes(userRole));

@@ -57,6 +57,7 @@ export const authOptions = {
           no_hp: user.no_hp,
           id_supplier: user.id_supplier,
           username: user.username,
+          role: user?.role,
           emailVerified: user.email_verified,
           maxAge: credentials.maxAge
             ? parseInt(credentials.maxAge)
@@ -78,6 +79,7 @@ export const authOptions = {
         token.no_hp = user.no_hp;
         token.id_supplier = user.id_supplier;
         token.username = user.username;
+        token.role = user.role;
         token.emailVerified = user.emailVerified;
         token.maxAge = user.maxAge;
       }
@@ -93,6 +95,7 @@ export const authOptions = {
       session.user.no_hp = token.no_hp;
       session.user.id_supplier = token.id_supplier;
       session.user.provider = token.provider;
+      session.user.role = token.role;
 
       if (token.maxAge) {
         session.maxAge = token.maxAge;
