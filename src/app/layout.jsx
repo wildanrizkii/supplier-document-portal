@@ -2,6 +2,7 @@ import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import SessionWrapper from "@/components/SessionWrapper";
 import { Toaster } from "react-hot-toast";
+import Script from "next/script";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   variable: "--font-plus-jakarta-sans",
@@ -25,6 +26,21 @@ export default function RootLayout({ children }) {
   return (
     <SessionWrapper>
       <html lang="en" suppressHydrationWarning>
+        <head>
+          {/* Google Analytics */}
+          <Script
+            src="https://www.googletagmanager.com/gtag/js?id=G-TT4P9R5YE0"
+            strategy="afterInteractive"
+          />
+          <Script id="google-analytics" strategy="afterInteractive">
+            {`
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', 'G-TT4P9R5YE0');
+            `}
+          </Script>
+        </head>
         <body className={`${plusJakartaSans.variable} antialiased`}>
           {children}
           <Toaster
