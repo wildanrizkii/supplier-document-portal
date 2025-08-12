@@ -331,6 +331,7 @@ const MillSheet = () => {
 
   // cek expire dan fetch material dalam satu fungsi
   // const fetchMaterialControl = async () => {
+  //   console.log("Fetching...");
   //   try {
   //     setLoading(true);
 
@@ -417,7 +418,36 @@ const MillSheet = () => {
   //   }
   // };
 
+  const checkAndUpdateIfNeeded = async () => {
+    try {
+      // 1. Ambil data terakhir dari document_check_log
+      const { data, error } = await supabase
+        .from("document_check_log")
+        .select("check_date")
+        .order("check_date", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error && error.code !== "PGRST116") throw error;
+
+      if (!data || data.check_date != today) {
+        // 2. Jalankan fungsi cek expire
+        await checkAndUpdateExpiredDocuments();
+
+        // 3. Simpan tanggal cek baru ke tabel document_check_log
+        const { error: insertError } = await supabase
+          .from("document_check_log")
+          .insert([{ check_date: today }]);
+
+        if (insertError) throw insertError;
+      }
+    } catch (err) {
+      console.error("Error in checkAndUpdateIfNeeded:", err.message || err);
+    }
+  };
+
   const checkAndUpdateExpiredDocuments = async () => {
+    console.log("Checking...");
     try {
       // Ambil semua dokumen yang sudah lewat tanggal expire dan status belum true
       const { data: expiredDocs, error: fetchError } = await supabase
@@ -455,13 +485,14 @@ const MillSheet = () => {
   useEffect(() => {
     if (session?.user?.id) {
       const run = async () => {
-        await checkAndUpdateExpiredDocuments(); // Cek dan update expired dulu
-        await fetchReferenceData(); // Ambil data referensi
-        await fetchMaterialControl(); // Ambil data material terbaru
+        await checkAndUpdateIfNeeded();
+        await fetchReferenceData();
+        await fetchMaterialControl();
       };
+
       run();
     }
-  }, [session]);
+  }, [session?.user?.id]);
 
   // NEW: Get unique document types for filter options
   const documentTypeFilterOptions = useMemo(() => {
