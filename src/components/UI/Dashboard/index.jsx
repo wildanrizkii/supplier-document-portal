@@ -318,7 +318,7 @@ const MillSheet = () => {
         supplier_name: row.supplier?.nama || "-",
         user_name: row.users?.nama || "-",
         user_email: row.users?.email || "-",
-        user_no_hp: row.users?.no_hp || "-",
+        user_no_hp: row.users?.no_hp ? `+62${row.users.no_hp}` : "Not set",
       }));
 
       setAllData(materialControlData || []);
@@ -1064,177 +1064,161 @@ const MillSheet = () => {
 
             {/* Table Body */}
             <tbody className="bg-white divide-y divide-gray-200">
-              {currentData.map((item, index) => {
-                return (
-                  <tr
-                    key={item.id}
-                    className="hover:bg-gray-50 transition-colors duration-150"
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {startIndex + index + 1}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      <div
-                        className="truncate max-w-xs"
-                        title={item.supplier_name}
+              {/*  Loading Skeleton */}
+              {loading
+                ? Array.from({ length: 10 }).map((_, i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td colSpan="10" className="px-6 py-4">
+                        <div className="h-4 bg-gray-200 rounded"></div>
+                      </td>
+                    </tr>
+                  ))
+                : currentData.map((item, index) => {
+                    return (
+                      <tr
+                        key={item.id}
+                        className="hover:bg-gray-50 transition-colors duration-150"
                       >
-                        {item.supplier_name}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      <div
-                        className="truncate max-w-xs"
-                        title={item.jenis_dokumen_name}
-                      >
-                        {item.jenis_dokumen_name}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      <div
-                        className="truncate max-w-xs"
-                        title={item.part_number_name}
-                      >
-                        {item.part_number_name}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      <div
-                        className="truncate max-w-xs"
-                        title={item.part_name_name}
-                      >
-                        {item.part_name_name}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                      <div className="truncate max-w-xs" title={item.material}>
-                        {item.material}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      {formatDate(item.tanggal_report)}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      {formatDate(item.tanggal_expire)}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      <StatusBadge status={item.status} />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <div className="flex items-center justify-start space-x-2">
-                        {/* Download Document Button */}
-                        {item.document_url ? (
-                          <button
-                            onClick={() =>
-                              handleDownload(
-                                item.document_url,
-                                `${item.material}_document`
-                              )
-                            }
-                            className="inline-flex items-center justify-center w-8 h-8 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-full transition-all duration-150"
-                            title="Download Document"
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {startIndex + index + 1}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900">
+                          <div
+                            className="truncate max-w-xs"
+                            title={item.supplier_name}
                           >
-                            <Download size={16} />
-                          </button>
-                        ) : (
-                          <div className="inline-flex items-center justify-center w-8 h-8">
-                            <span className="text-gray-400 text-xs">-</span>
+                            {item.supplier_name}
                           </div>
-                        )}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900">
+                          <div
+                            className="truncate max-w-xs"
+                            title={item.jenis_dokumen_name}
+                          >
+                            {item.jenis_dokumen_name}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900">
+                          <div
+                            className="truncate max-w-xs"
+                            title={item.part_number_name}
+                          >
+                            {item.part_number_name}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900">
+                          <div
+                            className="truncate max-w-xs"
+                            title={item.part_name_name}
+                          >
+                            {item.part_name_name}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                          <div
+                            className="truncate max-w-xs"
+                            title={item.material}
+                          >
+                            {item.material}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900">
+                          {formatDate(item.tanggal_report)}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900">
+                          {formatDate(item.tanggal_expire)}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900">
+                          <StatusBadge status={item.status} />
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          <div className="flex items-center justify-start space-x-2">
+                            {/* Download Document Button */}
+                            {item.document_url ? (
+                              <button
+                                onClick={() =>
+                                  handleDownload(
+                                    item.document_url,
+                                    `${item.material}_document`
+                                  )
+                                }
+                                className="inline-flex items-center justify-center w-8 h-8 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-full transition-all duration-150"
+                                title="Download Document"
+                              >
+                                <Download size={16} />
+                              </button>
+                            ) : (
+                              <div className="inline-flex items-center justify-center w-8 h-8">
+                                <span className="text-gray-400 text-xs">-</span>
+                              </div>
+                            )}
 
-                        {/* View Detail Button */}
-                        <button
-                          onClick={() => openDetailModal(item)}
-                          className="inline-flex items-center justify-center w-8 h-8 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-all duration-150"
-                          title="View Details"
-                        >
-                          <Eye size={16} />
-                        </button>
+                            {/* View Detail Button */}
+                            <button
+                              onClick={() => openDetailModal(item)}
+                              className="inline-flex items-center justify-center w-8 h-8 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-all duration-150"
+                              title="View Details"
+                            >
+                              <Eye size={16} />
+                            </button>
 
-                        {/* Edit Button */}
-                        <button
-                          onClick={() => openEditModal(item)}
-                          disabled={loading}
-                          className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50 disabled:opacity-50 rounded-full transition-all duration-150"
-                          title="Edit"
-                        >
-                          <Pencil size={16} />
-                        </button>
+                            {/* Edit Button */}
+                            <button
+                              onClick={() => openEditModal(item)}
+                              disabled={loading}
+                              className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50 disabled:opacity-50 rounded-full transition-all duration-150"
+                              title="Edit"
+                            >
+                              <Pencil size={16} />
+                            </button>
 
-                        {/* Delete Button */}
-                        <button
-                          onClick={() => openDeleteModal(item)}
-                          disabled={loading}
-                          className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 hover:bg-red-50 disabled:opacity-50 rounded-full transition-all duration-150"
-                          title="Delete"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+                            {/* Delete Button */}
+                            <button
+                              onClick={() => openDeleteModal(item)}
+                              disabled={loading}
+                              className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 hover:bg-red-50 disabled:opacity-50 rounded-full transition-all duration-150"
+                              title="Delete"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
             </tbody>
           </table>
-        </div>
 
-        {/* Loading Overlay */}
-        {loading && (
-          <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center">
-            <div className="text-blue-600">
-              <svg
-                className="animate-spin h-8 w-8"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
+          {!loading && currentData.length === 0 && (
+            <div className="text-center py-12">
+              <div className="text-gray-400 mb-2">
+                <svg
+                  className="mx-auto h-12 w-12"
+                  fill="none"
+                  viewBox="0 0 24 24"
                   stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </svg>
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+              </div>
+              <h3 className="text-sm font-medium text-gray-500">
+                {hasActiveFilters
+                  ? "No matching results found"
+                  : "No data available"}
+              </h3>
+              <p className="text-sm text-gray-400 mt-1">
+                {hasActiveFilters
+                  ? "Try adjusting your filters or search terms"
+                  : "Data will appear here after being added."}
+              </p>
             </div>
-          </div>
-        )}
-
-        {/* Empty State */}
-        {currentData.length === 0 && !loading && (
-          <div className="text-center py-12">
-            <div className="text-gray-400 mb-2">
-              <svg
-                className="mx-auto h-12 w-12"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1}
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-            </div>
-            <h3 className="text-sm font-medium text-gray-500">
-              {hasActiveFilters
-                ? "No matching results found"
-                : "No data available"}
-            </h3>
-            <p className="text-sm text-gray-400 mt-1">
-              {hasActiveFilters
-                ? "Try adjusting your filters or search terms"
-                : "Data will appear here after being added."}
-            </p>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Pagination */}
         {filteredAndSortedData.length > 0 && (
@@ -1525,7 +1509,7 @@ const MillSheet = () => {
                     Supplier User Phone Number
                   </h5>
                   <p className="mt-1 text-sm text-gray-900">
-                    +62 {selectedItem?.user_no_hp}
+                    {selectedItem?.user_no_hp}
                   </p>
                 </div>
               </div>
