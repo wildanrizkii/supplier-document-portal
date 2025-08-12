@@ -272,6 +272,7 @@ const LandingPage = () => {
                     alt="CMW Document Portal"
                     width={1536}
                     height={1024}
+                    priority
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.02]"
                   />
 
