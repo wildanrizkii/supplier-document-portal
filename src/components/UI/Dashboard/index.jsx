@@ -329,6 +329,94 @@ const MillSheet = () => {
     }
   };
 
+  // cek expire dan fetch material dalam satu fungsi
+  // const fetchMaterialControl = async () => {
+  //   try {
+  //     setLoading(true);
+
+  //     // 1. Cek dan update dokumen expired
+  //     const { data: expiredDocs, error: fetchError } = await supabase
+  //       .from("material_control")
+  //       .select("id_material_control")
+  //       .lt("tanggal_expire", today)
+  //       .eq("status", false);
+
+  //     if (fetchError) throw fetchError;
+
+  //     if (expiredDocs && expiredDocs.length > 0) {
+  //       const { error: updateError } = await supabase
+  //         .from("material_control")
+  //         .update({ status: true })
+  //         .in(
+  //           "id_material_control",
+  //           expiredDocs.map((doc) => doc.id_material_control)
+  //         );
+
+  //       if (updateError) throw updateError;
+
+  //       console.log(`${expiredDocs.length} dokumen diupdate menjadi expired`);
+  //     }
+
+  //     // 2. Ambil data material_control terbaru
+  //     let query = supabase
+  //       .from("material_control")
+  //       .select(
+  //         `
+  //       id_material_control,
+  //       material,
+  //       tanggal_report,
+  //       tanggal_expire,
+  //       status,
+  //       id_supplier,
+  //       id_jenis_dokumen,
+  //       id_part_number,
+  //       id_part_name,
+  //       id_user,
+  //       document_url,
+  //       jenis_dokumen:id_jenis_dokumen(nama),
+  //       part_name:id_part_name(nama),
+  //       part_number:id_part_number(nama),
+  //       supplier:id_supplier(nama),
+  //       users:id_user(nama, email, no_hp)
+  //     `
+  //       )
+  //       .order("tanggal_report", { ascending: false });
+
+  //     if (session?.user?.role === "Supplier") {
+  //       query = query.eq("id_user", session?.user?.id);
+  //     }
+
+  //     const { data, error } = await query;
+  //     if (error) throw error;
+
+  //     const materialControlData = data.map((row) => ({
+  //       id: row.id_material_control,
+  //       material: row.material,
+  //       tanggal_report: row.tanggal_report,
+  //       tanggal_expire: row.tanggal_expire,
+  //       status: row.status,
+  //       id_supplier: row.id_supplier,
+  //       id_jenis_dokumen: row.id_jenis_dokumen,
+  //       id_part_number: row.id_part_number,
+  //       id_part_name: row.id_part_name,
+  //       document_url: row.document_url,
+  //       jenis_dokumen_name: row.jenis_dokumen?.nama || "-",
+  //       part_name_name: row.part_name?.nama || "-",
+  //       part_number_name: row.part_number?.nama || "-",
+  //       supplier_name: row.supplier?.nama || "-",
+  //       user_name: row.users?.nama || "-",
+  //       user_email: row.users?.email || "-",
+  //       user_no_hp: row.users?.no_hp || "-",
+  //     }));
+
+  //     setAllData(materialControlData || []);
+  //   } catch (error) {
+  //     toast.error("Error fetching data: " + error.message);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
   const checkAndUpdateExpiredDocuments = async () => {
     try {
       // Ambil semua dokumen yang sudah lewat tanggal expire dan status belum true
