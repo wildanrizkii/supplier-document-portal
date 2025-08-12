@@ -268,7 +268,7 @@ const LandingPage = () => {
               <div className="relative rounded-2xl overflow-hidden shadow-xl transform transition-all duration-700 group-hover:shadow-2xl group-hover:scale-[1.01]">
                 <div className="aspect-[16/9] sm:aspect-[16/10] md:aspect-[16/9] lg:aspect-[16/8] relative">
                   <Image
-                    src="/images/cover.png"
+                    src="/images/cover.webp"
                     alt="CMW Document Portal"
                     width={1536}
                     height={1024}
