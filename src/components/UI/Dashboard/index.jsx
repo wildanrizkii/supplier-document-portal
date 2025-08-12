@@ -329,10 +329,49 @@ const MillSheet = () => {
     }
   };
 
+  const checkAndUpdateExpiredDocuments = async () => {
+    try {
+      // Ambil semua dokumen yang sudah lewat tanggal expire dan status belum true
+      const { data: expiredDocs, error: fetchError } = await supabase
+        .from("material_control")
+        .select("id_material_control")
+        .lt("tanggal_expire", today)
+        .eq("status", false);
+
+      if (fetchError) throw fetchError;
+
+      if (!expiredDocs || expiredDocs.length === 0) {
+        console.log("Tidak ada dokumen yang expired.");
+        return;
+      }
+
+      // Update semua dokumen menjadi expired
+      const { error: updateError } = await supabase
+        .from("material_control")
+        .update({ status: true })
+        .in(
+          "id_material_control",
+          expiredDocs.map((doc) => doc.id_material_control)
+        );
+
+      if (updateError) throw updateError;
+
+      console.log(
+        `${expiredDocs.length} dokumen sudah diupdate menjadi expired.`
+      );
+    } catch (error) {
+      console.error("Error updating expired documents:", error.message);
+    }
+  };
+
   useEffect(() => {
     if (session?.user?.id) {
-      fetchReferenceData();
-      fetchMaterialControl();
+      const run = async () => {
+        await checkAndUpdateExpiredDocuments(); // Cek dan update expired dulu
+        await fetchReferenceData(); // Ambil data referensi
+        await fetchMaterialControl(); // Ambil data material terbaru
+      };
+      run();
     }
   }, [session]);
 
@@ -754,7 +793,7 @@ const MillSheet = () => {
   const today = dayjs().format("YYYY-MM-DD");
 
   return (
-    <div className="w-full max-w-7xl mx-auto bg-gray-50 h-fit overflow-y-auto">
+    <div className="w-full mx-auto bg-gray-50 h-fit overflow-y-auto">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200">

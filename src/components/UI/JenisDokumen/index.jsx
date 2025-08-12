@@ -265,7 +265,7 @@ const JenisDokumen = () => {
   };
 
   return (
-    <div className="w-full max-w-7xl mx-auto bg-gray-50 h-fit overflow-y-auto">
+    <div className="w-full mx-auto bg-gray-50 h-fit overflow-y-auto">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200">
