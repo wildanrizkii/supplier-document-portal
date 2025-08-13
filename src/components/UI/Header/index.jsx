@@ -89,7 +89,7 @@ const Header = ({ toggleSidebar, toggleCollapse, isCollapsed = true }) => {
 
   return (
     <header className="bg-zinc-50 top-0 z-10 pt-2 transition-all duration-300">
-      <div className="px-2 sm:px-4 lg:px-6">
+      <div className="px-4 sm:pl-4 lg:pl-6">
         <div className="flex justify-between h-16 items-center">
           <div className="flex items-center flex-1">
             {/* Mobile menu button */}

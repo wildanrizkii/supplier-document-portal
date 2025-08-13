@@ -58,7 +58,7 @@ const Layout = ({ children }) => {
 
           {/* Main Content */}
           <main className="flex-1 p-6 overflow-y-auto bg-zinc-50">
-            <div className="w-full max-w-8xl mx-auto">{children}</div>
+            <div className="w-full mx-auto">{children}</div>
           </main>
         </div>
       </div>

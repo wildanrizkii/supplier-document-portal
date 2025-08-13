@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import supabase from "@/app/utils/db";
 import toast from "react-hot-toast";
+import SkeletonLoading from "@/components/SkeletonLoading";
 
 const JenisDokumen = () => {
   const [allData, setAllData] = useState([]);
@@ -350,76 +351,55 @@ const JenisDokumen = () => {
 
             {/* Table Body */}
             <tbody className="bg-white divide-y divide-gray-200">
-              {currentData.map((item, index) => {
-                return (
-                  <tr
-                    key={item.id}
-                    className="hover:bg-gray-50 transition-colors duration-150"
-                  >
-                    <td className="w-20 px-6 py-4 whitespace-nowrap text-sm text-gray-500 overflow-hidden">
-                      {startIndex + index + 1}
-                    </td>
-                    <td className="w-96 px-6 py-4 text-sm font-medium text-gray-900 truncate">
-                      <div className="truncate" title={item.nama}>
-                        {item.nama}
-                      </div>
-                    </td>
-                    <td className="w-32 px-6 py-4 whitespace-nowrap text-center overflow-hidden">
-                      <div className="flex items-center justify-start space-x-2">
-                        {/* Edit Button */}
-                        <button
-                          onClick={() => openEditModal(item)}
-                          disabled={loading}
-                          className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50 disabled:opacity-50 rounded-full transition-all duration-150"
-                          title="Edit"
-                        >
-                          <Pencil size={16} />
-                        </button>
+              {loading ? (
+                <SkeletonLoading Rows={10} Cols={3} />
+              ) : (
+                currentData.map((item, index) => {
+                  return (
+                    <tr
+                      key={item.id}
+                      className="hover:bg-gray-50 transition-colors duration-150"
+                    >
+                      <td className="w-20 px-6 py-4 whitespace-nowrap text-sm text-gray-500 overflow-hidden">
+                        {startIndex + index + 1}
+                      </td>
+                      <td className="w-96 px-6 py-4 text-sm font-medium text-gray-900 truncate">
+                        <div className="truncate" title={item.nama}>
+                          {item.nama}
+                        </div>
+                      </td>
+                      <td className="w-32 px-6 py-4 whitespace-nowrap text-center overflow-hidden">
+                        <div className="flex items-center justify-start space-x-2">
+                          {/* Edit Button */}
+                          <button
+                            onClick={() => openEditModal(item)}
+                            disabled={loading}
+                            className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50 disabled:opacity-50 rounded-full transition-all duration-150"
+                            title="Edit"
+                          >
+                            <Pencil size={16} />
+                          </button>
 
-                        {/* Delete Button */}
-                        <button
-                          onClick={() => openDeleteModal(item)}
-                          disabled={loading}
-                          className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 hover:bg-red-50 disabled:opacity-50 rounded-full transition-all duration-150"
-                          title="Delete"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+                          {/* Delete Button */}
+                          <button
+                            onClick={() => openDeleteModal(item)}
+                            disabled={loading}
+                            className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 hover:bg-red-50 disabled:opacity-50 rounded-full transition-all duration-150"
+                            title="Delete"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
 
         {/* Loading Overlay */}
-        {loading && (
-          <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center">
-            <div className="text-blue-600">
-              <svg
-                className="animate-spin h-8 w-8"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </svg>
-            </div>
-          </div>
-        )}
 
         {/* Empty State */}
         {currentData.length === 0 && !loading && (

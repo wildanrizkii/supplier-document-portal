@@ -23,6 +23,7 @@ import supabase from "@/app/utils/db";
 import toast from "react-hot-toast";
 import { useSession } from "next-auth/react";
 import dayjs from "dayjs";
+import SkeletonLoading from "@/components/SkeletonLoading";
 
 // Simple Select Dropdown Component
 const SimpleSelect = ({
@@ -228,20 +229,6 @@ const MillSheet = () => {
     field: "material",
     order: "asc",
   });
-
-  const SkeletonLoading = () => {
-    return (
-      <>
-        {Array.from({ length: 10 }).map((_, i) => (
-          <tr key={i} className="animate-pulse">
-            <td colSpan="10" className="px-6 py-4">
-              <div className="h-4 bg-gray-200 rounded"></div>
-            </td>
-          </tr>
-        ))}
-      </>
-    );
-  };
 
   // NEW: Filter state for document type
   const [documentTypeFilter, setDocumentTypeFilter] = useState("");
@@ -926,7 +913,7 @@ const MillSheet = () => {
   const today = dayjs().format("YYYY-MM-DD");
 
   return (
-    <div className="w-full mx-auto bg-gray-50 h-fit overflow-y-auto">
+    <div className="w-full max-w-screen mx-auto bg-gray-50 h-fit overflow-y-auto">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200">
@@ -1110,7 +1097,7 @@ const MillSheet = () => {
             {/* Table Body */}
             <tbody className="bg-white divide-y divide-gray-200">
               {loading ? (
-                <SkeletonLoading />
+                <SkeletonLoading Rows={10} Cols={10} />
               ) : (
                 currentData.map((item, index) => {
                   return (
