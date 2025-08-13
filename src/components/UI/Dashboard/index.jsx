@@ -193,7 +193,7 @@ const StatusBadge = ({ status }) => {
 
 const MillSheet = () => {
   const [allData, setAllData] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Reference data for dropdowns
   const [jenisDocOptions, setJenisDocOptions] = useState([]);
@@ -228,6 +228,20 @@ const MillSheet = () => {
     field: "material",
     order: "asc",
   });
+
+  const SkeletonLoading = () => {
+    return (
+      <>
+        {Array.from({ length: 10 }).map((_, i) => (
+          <tr key={i} className="animate-pulse">
+            <td colSpan="10" className="px-6 py-4">
+              <div className="h-4 bg-gray-200 rounded"></div>
+            </td>
+          </tr>
+        ))}
+      </>
+    );
+  };
 
   // NEW: Filter state for document type
   const [documentTypeFilter, setDocumentTypeFilter] = useState("");
@@ -1095,128 +1109,123 @@ const MillSheet = () => {
 
             {/* Table Body */}
             <tbody className="bg-white divide-y divide-gray-200">
-              {/*  Loading Skeleton */}
-              {loading
-                ? Array.from({ length: 10 }).map((_, i) => (
-                    <tr key={i} className="animate-pulse">
-                      <td colSpan="10" className="px-6 py-4">
-                        <div className="h-4 bg-gray-200 rounded"></div>
+              {loading ? (
+                <SkeletonLoading />
+              ) : (
+                currentData.map((item, index) => {
+                  return (
+                    <tr
+                      key={item.id}
+                      className="hover:bg-gray-50 transition-colors duration-150"
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {startIndex + index + 1}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        <div
+                          className="truncate max-w-xs"
+                          title={item.supplier_name}
+                        >
+                          {item.supplier_name}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        <div
+                          className="truncate max-w-xs"
+                          title={item.jenis_dokumen_name}
+                        >
+                          {item.jenis_dokumen_name}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        <div
+                          className="truncate max-w-xs"
+                          title={item.part_number_name}
+                        >
+                          {item.part_number_name}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        <div
+                          className="truncate max-w-xs"
+                          title={item.part_name_name}
+                        >
+                          {item.part_name_name}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                        <div
+                          className="truncate max-w-xs"
+                          title={item.material}
+                        >
+                          {item.material}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {formatDate(item.tanggal_report)}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {formatDate(item.tanggal_expire)}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        <StatusBadge status={item.status} />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <div className="flex items-center justify-start space-x-2">
+                          {/* Download Document Button */}
+                          {item.document_url ? (
+                            <button
+                              onClick={() =>
+                                handleDownload(
+                                  item.document_url,
+                                  `${item.material}_document`
+                                )
+                              }
+                              className="inline-flex items-center justify-center w-8 h-8 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-full transition-all duration-150"
+                              title="Download Document"
+                            >
+                              <Download size={16} />
+                            </button>
+                          ) : (
+                            <div className="inline-flex items-center justify-center w-8 h-8">
+                              <span className="text-gray-400 text-xs">-</span>
+                            </div>
+                          )}
+
+                          {/* View Detail Button */}
+                          <button
+                            onClick={() => openDetailModal(item)}
+                            className="inline-flex items-center justify-center w-8 h-8 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-all duration-150"
+                            title="View Details"
+                          >
+                            <Eye size={16} />
+                          </button>
+
+                          {/* Edit Button */}
+                          <button
+                            onClick={() => openEditModal(item)}
+                            disabled={loading}
+                            className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50 disabled:opacity-50 rounded-full transition-all duration-150"
+                            title="Edit"
+                          >
+                            <Pencil size={16} />
+                          </button>
+
+                          {/* Delete Button */}
+                          <button
+                            onClick={() => openDeleteModal(item)}
+                            disabled={loading}
+                            className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 hover:bg-red-50 disabled:opacity-50 rounded-full transition-all duration-150"
+                            title="Delete"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
-                  ))
-                : currentData.map((item, index) => {
-                    return (
-                      <tr
-                        key={item.id}
-                        className="hover:bg-gray-50 transition-colors duration-150"
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {startIndex + index + 1}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-900">
-                          <div
-                            className="truncate max-w-xs"
-                            title={item.supplier_name}
-                          >
-                            {item.supplier_name}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-900">
-                          <div
-                            className="truncate max-w-xs"
-                            title={item.jenis_dokumen_name}
-                          >
-                            {item.jenis_dokumen_name}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-900">
-                          <div
-                            className="truncate max-w-xs"
-                            title={item.part_number_name}
-                          >
-                            {item.part_number_name}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-900">
-                          <div
-                            className="truncate max-w-xs"
-                            title={item.part_name_name}
-                          >
-                            {item.part_name_name}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                          <div
-                            className="truncate max-w-xs"
-                            title={item.material}
-                          >
-                            {item.material}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-900">
-                          {formatDate(item.tanggal_report)}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-900">
-                          {formatDate(item.tanggal_expire)}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-900">
-                          <StatusBadge status={item.status} />
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          <div className="flex items-center justify-start space-x-2">
-                            {/* Download Document Button */}
-                            {item.document_url ? (
-                              <button
-                                onClick={() =>
-                                  handleDownload(
-                                    item.document_url,
-                                    `${item.material}_document`
-                                  )
-                                }
-                                className="inline-flex items-center justify-center w-8 h-8 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-full transition-all duration-150"
-                                title="Download Document"
-                              >
-                                <Download size={16} />
-                              </button>
-                            ) : (
-                              <div className="inline-flex items-center justify-center w-8 h-8">
-                                <span className="text-gray-400 text-xs">-</span>
-                              </div>
-                            )}
-
-                            {/* View Detail Button */}
-                            <button
-                              onClick={() => openDetailModal(item)}
-                              className="inline-flex items-center justify-center w-8 h-8 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-all duration-150"
-                              title="View Details"
-                            >
-                              <Eye size={16} />
-                            </button>
-
-                            {/* Edit Button */}
-                            <button
-                              onClick={() => openEditModal(item)}
-                              disabled={loading}
-                              className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50 disabled:opacity-50 rounded-full transition-all duration-150"
-                              title="Edit"
-                            >
-                              <Pencil size={16} />
-                            </button>
-
-                            {/* Delete Button */}
-                            <button
-                              onClick={() => openDeleteModal(item)}
-                              disabled={loading}
-                              className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 hover:bg-red-50 disabled:opacity-50 rounded-full transition-all duration-150"
-                              title="Delete"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  );
+                })
+              )}
             </tbody>
           </table>
 
