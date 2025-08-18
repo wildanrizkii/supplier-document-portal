@@ -38,7 +38,7 @@ const Header = ({ toggleSidebar, toggleCollapse, isCollapsed = true }) => {
       tentang: "Tentang",
     };
 
-    const breadcrumbs = [{ label: "Dashboard", href: "/dashboard" }];
+    const breadcrumbs = [];
     let currentPath = "";
 
     pathSegments.forEach((segment, index) => {

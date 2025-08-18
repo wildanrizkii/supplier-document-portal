@@ -49,16 +49,14 @@ const Layout = ({ children }) => {
               : "lg:ml-64" // w-64 = 16rem = 256px
           }`}
         >
-          {/* Header - Fixed di bagian atas */}
           <Header
             toggleSidebar={toggleSidebar}
             toggleCollapse={toggleCollapse}
             isCollapsed={isCollapsed}
           />
 
-          {/* Main Content */}
-          <main className="flex-1 p-6 overflow-y-auto bg-zinc-50">
-            <div className="w-full mx-auto">{children}</div>
+          <main className="flex-1 overflow-y-auto bg-zinc-50">
+            <div className="w-full mx-auto lg:p-6">{children}</div>
           </main>
         </div>
       </div>

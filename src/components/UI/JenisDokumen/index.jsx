@@ -266,12 +266,13 @@ const JenisDokumen = () => {
   };
 
   return (
-    <div className="w-full mx-auto bg-gray-50 h-fit overflow-y-auto">
+    <div className="w-full max-w-screen mx-auto bg-gray-50 h-fit overflow-y-auto p-1.5">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 gap-3">
+            {/* Title + Count */}
+            <div className="flex items-baseline space-x-4">
               <h2 className="text-xl font-semibold text-gray-900">
                 Jenis Dokumen
               </h2>
@@ -280,9 +281,10 @@ const JenisDokumen = () => {
               </span>
             </div>
 
-            <div className="flex items-center space-x-3">
+            {/* Controls */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               {/* Sort Controls */}
-              <div className="flex items-center space-x-2 bg-gray-50 rounded-lg px-3 py-2">
+              <div className="flex items-center space-x-2 bg-gray-50 rounded-lg px-3 py-2 w-1/2 min-w-56 sm:w-80">
                 <span className="text-sm text-gray-600">Sort by Name:</span>
                 <button
                   onClick={handleSort}
@@ -304,21 +306,21 @@ const JenisDokumen = () => {
                 onClick={openAddModal}
                 disabled={loading}
                 title="Add New Item"
-                className="flex items-center gap-1 py-1 px-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors duration-150"
+                className="flex items-center justify-center gap-1 py-1 px-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors duration-150 w-[88px] sm:w-auto"
               >
                 <Plus size={16} />
                 Add
               </button>
 
               {/* Search */}
-              <div className="relative">
+              <div className="relative w-full sm:w-64">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Search by name..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-64"
+                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-1/2 min-w-56 sm:w-80"
                 />
               </div>
             </div>
@@ -327,7 +329,7 @@ const JenisDokumen = () => {
 
         {/* Table */}
         <div className="overflow-x-auto">
-          <table className="w-full table-fixed">
+          <table className="w-full">
             {/* Table Header */}
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>

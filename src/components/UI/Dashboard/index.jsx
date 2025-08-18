@@ -913,25 +913,25 @@ const MillSheet = () => {
   const today = dayjs().format("YYYY-MM-DD");
 
   return (
-    <div className="w-full max-w-screen mx-auto bg-gray-50 h-fit overflow-y-auto">
+    <div className="w-full max-w-screen mx-auto bg-gray-50 h-fit overflow-y-auto p-1.5">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 gap-3">
+            <div className="flex items-baseline space-x-4">
               <h2 className="text-xl font-semibold text-gray-900">Documents</h2>
               <span className="text-sm text-gray-500">
                 {filteredAndSortedData.length} Items
               </span>
             </div>
 
-            <div className="flex items-center space-x-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               {/* Add button */}
               <button
                 onClick={openAddModal}
                 disabled={loading}
                 title="Add New Mill Sheet"
-                className="flex items-center gap-1 py-1 px-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors duration-150"
+                className="flex items-center justify-center gap-1 py-1 px-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors duration-150 w-[88px] sm:w-auto"
               >
                 <Plus size={16} />
                 Add
@@ -945,15 +945,15 @@ const MillSheet = () => {
                   placeholder="Search supplier, part number, part name, material..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 w-80"
+                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 w-1/2 min-w-56 sm:w-80"
                 />
               </div>
             </div>
           </div>
 
-          {/* NEW: Filter Section */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+          {/* Filter Section */}
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               {/* Document Type Filter */}
               <div className="flex items-center space-x-1">
                 <Filter size={16} className="text-gray-700" />
@@ -988,9 +988,9 @@ const MillSheet = () => {
 
             {/* Active Filters Display */}
             {hasActiveFilters && (
-              <div className="flex items-center space-x-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm text-gray-500">Active filters:</span>
-                <div className="flex space-x-2">
+                <div className="flex flex-wrap gap-2">
                   {searchTerm && (
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
                       Search: "{searchTerm}"
