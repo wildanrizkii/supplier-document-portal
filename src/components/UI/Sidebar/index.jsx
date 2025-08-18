@@ -382,6 +382,7 @@ const Sidebar = ({
             width={180}
             height={40}
             className="w-auto"
+            priority
           />
         </div>
 
@@ -426,6 +427,7 @@ const Sidebar = ({
                   width={80}
                   height={80}
                   className="rounded-lg"
+                  priority
                 />
               </div>
             ) : (
@@ -440,6 +442,7 @@ const Sidebar = ({
                     width={200}
                     height={200}
                     className="rounded-lg"
+                    priority
                   />
                 </div>
               </div>

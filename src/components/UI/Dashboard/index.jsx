@@ -173,9 +173,9 @@ const FileUpload = ({
 const StatusBadge = ({ status }) => {
   const getStatusDisplay = (status) => {
     if (status === true || status === "true") {
-      return { text: "Open", color: "bg-green-100 text-green-800" };
+      return { text: "NG", color: "bg-red-100 text-red-800" };
     } else if (status === false || status === "false") {
-      return { text: "Close", color: "bg-red-100 text-red-800" };
+      return { text: "OK", color: "bg-green-100 text-green-800" };
     } else {
       return { text: "Unknown", color: "bg-gray-100 text-gray-800" };
     }
@@ -955,10 +955,10 @@ const MillSheet = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               {/* Document Type Filter */}
-              <div className="flex items-center space-x-2">
-                <Filter size={16} className="text-gray-400" />
-                <label className="text-sm font-medium text-gray-700">
-                  Document Type:
+              <div className="flex items-center space-x-1">
+                <Filter size={16} className="text-gray-700" />
+                <label className="text-sm font-medium text-gray-700 mr-2">
+                  Filter:
                 </label>
                 <select
                   value={documentTypeFilter}
@@ -1189,24 +1189,28 @@ const MillSheet = () => {
                           </button>
 
                           {/* Edit Button */}
-                          <button
-                            onClick={() => openEditModal(item)}
-                            disabled={loading}
-                            className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50 disabled:opacity-50 rounded-full transition-all duration-150"
-                            title="Edit"
-                          >
-                            <Pencil size={16} />
-                          </button>
+                          {session?.user?.role === "Author" && (
+                            <button
+                              onClick={() => openEditModal(item)}
+                              disabled={loading}
+                              className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50 disabled:opacity-50 rounded-full transition-all duration-150"
+                              title="Edit"
+                            >
+                              <Pencil size={16} />
+                            </button>
+                          )}
 
                           {/* Delete Button */}
-                          <button
-                            onClick={() => openDeleteModal(item)}
-                            disabled={loading}
-                            className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 hover:bg-red-50 disabled:opacity-50 rounded-full transition-all duration-150"
-                            title="Delete"
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                          {session?.user?.role === "Author" && (
+                            <button
+                              onClick={() => openDeleteModal(item)}
+                              disabled={loading}
+                              className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-800 hover:bg-red-50 disabled:opacity-50 rounded-full transition-all duration-150"
+                              title="Delete"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
