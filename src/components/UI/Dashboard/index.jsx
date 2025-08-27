@@ -219,6 +219,9 @@ const MillSheet = () => {
     id_part_number: "",
     id_part_name: "",
     document_url: "",
+    // NEW: Manual input fields for Supplier role
+    part_name_manual: "",
+    part_number_manual: "",
   });
 
   // Search, pagination, sorting, and filter states
@@ -329,95 +332,6 @@ const MillSheet = () => {
       setLoading(false);
     }
   };
-
-  // cek expire dan fetch material dalam satu fungsi
-  // const fetchMaterialControl = async () => {
-  //   console.log("Fetching...");
-  //   try {
-  //     setLoading(true);
-
-  //     // 1. Cek dan update dokumen expired
-  //     const { data: expiredDocs, error: fetchError } = await supabase
-  //       .from("material_control")
-  //       .select("id_material_control")
-  //       .lt("tanggal_expire", today)
-  //       .eq("status", false);
-
-  //     if (fetchError) throw fetchError;
-
-  //     if (expiredDocs && expiredDocs.length > 0) {
-  //       const { error: updateError } = await supabase
-  //         .from("material_control")
-  //         .update({ status: true })
-  //         .in(
-  //           "id_material_control",
-  //           expiredDocs.map((doc) => doc.id_material_control)
-  //         );
-
-  //       if (updateError) throw updateError;
-
-  //       console.log(`${expiredDocs.length} dokumen diupdate menjadi expired`);
-  //     }
-
-  //     // 2. Ambil data material_control terbaru
-  //     let query = supabase
-  //       .from("material_control")
-  //       .select(
-  //         `
-  //       id_material_control,
-  //       material,
-  //       tanggal_report,
-  //       tanggal_expire,
-  //       status,
-  //       id_supplier,
-  //       id_jenis_dokumen,
-  //       id_part_number,
-  //       id_part_name,
-  //       id_user,
-  //       document_url,
-  //       jenis_dokumen:id_jenis_dokumen(nama),
-  //       part_name:id_part_name(nama),
-  //       part_number:id_part_number(nama),
-  //       supplier:id_supplier(nama),
-  //       users:id_user(nama, email, no_hp)
-  //     `
-  //       )
-  //       .order("tanggal_report", { ascending: false });
-
-  //     if (session?.user?.role === "Supplier") {
-  //       query = query.eq("id_user", session?.user?.id);
-  //     }
-
-  //     const { data, error } = await query;
-  //     if (error) throw error;
-
-  //     const materialControlData = data.map((row) => ({
-  //       id: row.id_material_control,
-  //       material: row.material,
-  //       tanggal_report: row.tanggal_report,
-  //       tanggal_expire: row.tanggal_expire,
-  //       status: row.status,
-  //       id_supplier: row.id_supplier,
-  //       id_jenis_dokumen: row.id_jenis_dokumen,
-  //       id_part_number: row.id_part_number,
-  //       id_part_name: row.id_part_name,
-  //       document_url: row.document_url,
-  //       jenis_dokumen_name: row.jenis_dokumen?.nama || "-",
-  //       part_name_name: row.part_name?.nama || "-",
-  //       part_number_name: row.part_number?.nama || "-",
-  //       supplier_name: row.supplier?.nama || "-",
-  //       user_name: row.users?.nama || "-",
-  //       user_email: row.users?.email || "-",
-  //       user_no_hp: row.users?.no_hp || "-",
-  //     }));
-
-  //     setAllData(materialControlData || []);
-  //   } catch (error) {
-  //     toast.error("Error fetching data: " + error.message);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
 
   const checkAndUpdateIfNeeded = async () => {
     try {
@@ -613,6 +527,9 @@ const MillSheet = () => {
       id_part_number: "",
       id_part_name: "",
       document_url: "",
+      // NEW: Reset manual input fields
+      part_name_manual: "",
+      part_number_manual: "",
     });
     setSelectedFile(null);
     setShowAddModal(true);
@@ -630,6 +547,11 @@ const MillSheet = () => {
       id_part_number: item.id_part_number || "",
       id_part_name: item.id_part_name || "",
       document_url: item.document_url || "",
+      // NEW: Set manual fields based on current data for Supplier role
+      part_name_manual:
+        session?.user?.role === "Supplier" ? item.part_name_name : "",
+      part_number_manual:
+        session?.user?.role === "Supplier" ? item.part_number_name : "",
     });
     setSelectedFile(null);
     setShowEditModal(true);
@@ -662,6 +584,9 @@ const MillSheet = () => {
       id_part_number: "",
       id_part_name: "",
       document_url: "",
+      // NEW: Reset manual input fields
+      part_name_manual: "",
+      part_number_manual: "",
     });
   };
 
@@ -694,6 +619,80 @@ const MillSheet = () => {
     }
   };
 
+  // NEW: Function to find or create part name
+  const findOrCreatePartName = async (partNameValue) => {
+    if (!partNameValue || partNameValue.trim() === "") {
+      return null;
+    }
+
+    try {
+      // First, try to find existing part name
+      const { data: existingPartName, error: findError } = await supabase
+        .from("part_name")
+        .select("id_part_name")
+        .ilike("nama", partNameValue.trim())
+        .single();
+
+      if (!findError && existingPartName) {
+        return existingPartName.id_part_name;
+      }
+
+      // If not found, create new one
+      const { data: newPartName, error: createError } = await supabase
+        .from("part_name")
+        .insert([{ nama: partNameValue.trim() }])
+        .select("id_part_name")
+        .single();
+
+      if (createError) throw createError;
+
+      // Refresh part name options for Author role
+      await fetchReferenceData();
+
+      return newPartName.id_part_name;
+    } catch (error) {
+      console.error("Error finding/creating part name:", error);
+      throw error;
+    }
+  };
+
+  // NEW: Function to find or create part number
+  const findOrCreatePartNumber = async (partNumberValue) => {
+    if (!partNumberValue || partNumberValue.trim() === "") {
+      return null;
+    }
+
+    try {
+      // First, try to find existing part number
+      const { data: existingPartNumber, error: findError } = await supabase
+        .from("part_number")
+        .select("id_part_number")
+        .ilike("nama", partNumberValue.trim())
+        .single();
+
+      if (!findError && existingPartNumber) {
+        return existingPartNumber.id_part_number;
+      }
+
+      // If not found, create new one
+      const { data: newPartNumber, error: createError } = await supabase
+        .from("part_number")
+        .insert([{ nama: partNumberValue.trim() }])
+        .select("id_part_number")
+        .single();
+
+      if (createError) throw createError;
+
+      // Refresh part number options for Author role
+      await fetchReferenceData();
+
+      return newPartNumber.id_part_number;
+    } catch (error) {
+      console.error("Error finding/creating part number:", error);
+      throw error;
+    }
+  };
+
   // Function to insert new reference data
   const insertNewReferenceData = async (tableName, nama) => {
     try {
@@ -711,7 +710,7 @@ const MillSheet = () => {
     }
   };
 
-  // Function to handle form submission
+  // MODIFIED: Function to handle form submission with role-based part processing
   const handleFormSubmit = async (isAdd = true) => {
     if (!formData.material.trim()) {
       toast.error("Material is required!");
@@ -736,19 +735,26 @@ const MillSheet = () => {
 
       let processedData = {
         material: formData.material.trim(),
-        tanggal_report: today,
+        tanggal_report: formData.tanggal_report || today,
         tanggal_expire: formData.tanggal_expire,
         status: Boolean(formData.status), // Convert to boolean
         document_url: documentUrl || null,
-        id_supplier: session?.user?.id_supplier,
+        id_supplier:
+          session?.user?.role === "Author"
+            ? formData?.id_supplier
+            : session?.user?.id_supplier,
         id_jenis_dokumen: null,
         id_part_number: null,
         id_part_name: null,
         id_user: session?.user?.id,
       };
 
-      // Helper function to process reference data
-      const processReferenceData = async (value, options, tableName) => {
+      // Helper function to process reference data for Author role
+      const processReferenceDataForAuthor = async (
+        value,
+        options,
+        tableName
+      ) => {
         if (!value || value === "") return null;
 
         // Convert to number if it's a valid number
@@ -769,22 +775,35 @@ const MillSheet = () => {
         return null; // If ID not found, return null
       };
 
-      // Process each reference field
-      processedData.id_jenis_dokumen = await processReferenceData(
+      // Process each reference field based on user role
+      processedData.id_jenis_dokumen = await processReferenceDataForAuthor(
         formData.id_jenis_dokumen,
         jenisDocOptions,
         "jenis_dokumen"
       );
-      processedData.id_part_name = await processReferenceData(
-        formData.id_part_name,
-        partNameOptions,
-        "part_name"
-      );
-      processedData.id_part_number = await processReferenceData(
-        formData.id_part_number,
-        partNumberOptions,
-        "part_number"
-      );
+
+      // NEW: Process part name and part number based on role
+      if (session?.user?.role === "Supplier") {
+        // For Supplier: use manual input and find/create records
+        processedData.id_part_name = await findOrCreatePartName(
+          formData.part_name_manual
+        );
+        processedData.id_part_number = await findOrCreatePartNumber(
+          formData.part_number_manual
+        );
+      } else {
+        // For Author: use dropdown selections
+        processedData.id_part_name = await processReferenceDataForAuthor(
+          formData.id_part_name,
+          partNameOptions,
+          "part_name"
+        );
+        processedData.id_part_number = await processReferenceDataForAuthor(
+          formData.id_part_number,
+          partNumberOptions,
+          "part_number"
+        );
+      }
 
       // Insert or update material control data
       console.log("Processed data before insert/update:", processedData);
@@ -1344,34 +1363,91 @@ const MillSheet = () => {
               />
             </div>
 
-            {/* Part Name */}
+            {/* Supplier */}
+            {session?.user?.role === "Author" && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Supplier
+                </label>
+                <SimpleSelect
+                  value={formData.id_supplier}
+                  onChange={(value) =>
+                    handleFormDataChange("id_supplier", value)
+                  }
+                  options={supplierOptions}
+                  placeholder="Select supplier..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+            )}
+
+            {/* Part Name - Role-based rendering */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Part Name
               </label>
-              <SimpleSelect
-                value={formData.id_part_name}
-                onChange={(value) =>
-                  handleFormDataChange("id_part_name", value)
-                }
-                options={partNameOptions}
-                placeholder="Select part name..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
+              {session?.user?.role === "Supplier" ? (
+                <input
+                  type="text"
+                  value={formData.part_name_manual}
+                  onChange={(e) =>
+                    handleFormDataChange("part_name_manual", e.target.value)
+                  }
+                  placeholder="Enter part name..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              ) : (
+                <SimpleSelect
+                  value={formData.id_part_name}
+                  onChange={(value) =>
+                    handleFormDataChange("id_part_name", value)
+                  }
+                  options={partNameOptions}
+                  placeholder="Select part name..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              )}
             </div>
 
-            {/* Part Number */}
+            {/* Part Number - Role-based rendering */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Part Number
               </label>
-              <SimpleSelect
-                value={formData.id_part_number}
-                onChange={(value) =>
-                  handleFormDataChange("id_part_number", value)
+              {session?.user?.role === "Supplier" ? (
+                <input
+                  type="text"
+                  value={formData.part_number_manual}
+                  onChange={(e) =>
+                    handleFormDataChange("part_number_manual", e.target.value)
+                  }
+                  placeholder="Enter part number..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              ) : (
+                <SimpleSelect
+                  value={formData.id_part_number}
+                  onChange={(value) =>
+                    handleFormDataChange("id_part_number", value)
+                  }
+                  options={partNumberOptions}
+                  placeholder="Select part number..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              )}
+            </div>
+
+            {/* Tanggal Report */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Report Date
+              </label>
+              <input
+                type="date"
+                value={formData.tanggal_report}
+                onChange={(e) =>
+                  handleFormDataChange("tanggal_report", e.target.value)
                 }
-                options={partNumberOptions}
-                placeholder="Select part number..."
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
