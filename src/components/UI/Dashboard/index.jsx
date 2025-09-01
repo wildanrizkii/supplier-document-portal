@@ -172,10 +172,12 @@ const FileUpload = ({
 // Status Badge Component
 const StatusBadge = ({ status }) => {
   const getStatusDisplay = (status) => {
-    if (status === true || status === "true") {
+    if (status === "NG") {
       return { text: "NG", color: "bg-red-100 text-red-800" };
-    } else if (status === false || status === "false") {
+    } else if (status === "OK") {
       return { text: "OK", color: "bg-green-100 text-green-800" };
+    } else if (status === "PERLU UPDATE") {
+      return { text: "PERLU UPDATE", color: "bg-green-100 text-green-800" };
     } else {
       return { text: "Unknown", color: "bg-gray-100 text-gray-800" };
     }
@@ -213,7 +215,7 @@ const MillSheet = () => {
     material: "",
     tanggal_report: "",
     tanggal_expire: "",
-    status: false,
+    status: "OK", // perlu cek tanggal dulu saat menambah dokumen baru
     id_supplier: "",
     id_jenis_dokumen: "",
     id_part_number: "",
@@ -737,7 +739,7 @@ const MillSheet = () => {
         material: formData.material.trim(),
         tanggal_report: formData.tanggal_report || today,
         tanggal_expire: formData.tanggal_expire,
-        status: Boolean(formData.status), // Convert to boolean
+        status: formData.status, // Convert to boolean
         document_url: documentUrl || null,
         id_supplier:
           session?.user?.role === "Author"
@@ -932,7 +934,7 @@ const MillSheet = () => {
   const today = dayjs().format("YYYY-MM-DD");
 
   return (
-    <div className="w-full max-w-screen mx-auto bg-gray-50 h-fit overflow-y-auto p-1.5">
+    <div className="w-full max-w-screen mx-auto bg-gray-50 h-fit overflow-y-auto">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200">
@@ -1510,7 +1512,19 @@ const MillSheet = () => {
             </button>
             <button
               onClick={showAddModal ? handleAdd : handleEdit}
-              disabled={loading || !formData.material.trim()}
+              disabled={
+                loading ||
+                !formData.material.trim() ||
+                !formData.id_jenis_dokumen.trim() ||
+                !formData.id_supplier ||
+                !formData.tanggal_expire ||
+                !formData.tanggal_report ||
+                (session?.role?.role === "Supplier"
+                  ? !formData.part_name_manual || !formData.part_number_manual
+                  : session?.role?.role === "Author"
+                    ? !formData.id_part_name || !formData.id_part_number
+                    : false)
+              }
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors"
             >
               {loading
