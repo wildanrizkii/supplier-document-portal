@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import nodemailer from "nodemailer";
+import dayjs from "dayjs";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -45,8 +46,8 @@ export async function POST(request) {
     try {
       const testResult = await transporter.sendMail({
         from: `"Sistem Portal Dokumen" <${process.env.SMTP_FROM}>`,
-        to: "",
-        subject: "Email - Sistem Pengingat Harian",
+        to: "wildanrizki9560@gmail.com",
+        subject: "Test Email - Sistem Pengingat Bulanan",
         html: `
           <h2>Test Email Berhasil</h2>
           <p><strong>From:</strong> ${process.env.SMTP_FROM}</p>
@@ -69,6 +70,201 @@ export async function POST(request) {
           success: false,
           error: error.message,
           code: error.code,
+        },
+        { status: 500 }
+      );
+    }
+  }
+
+  // Test endpoint untuk menjalankan cronjob manual
+  if (body.test === "run_monthly_cron") {
+    console.log("🔧 Manual monthly cron test started");
+
+    // Clone headers asli lalu tambahkan authorization
+    const newHeaders = new Headers(request.headers);
+    newHeaders.set(
+      "authorization",
+      `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET}`
+    );
+
+    // Buat Request baru dengan headers yang sudah di-override
+    const testRequest = new Request(request.url, {
+      method: request.method,
+      headers: newHeaders,
+    });
+
+    return handleCronRequest(testRequest, "POST-TEST");
+  }
+
+  // Test endpoint untuk simulasi data expire
+  if (body.test === "simulate_expiry_data") {
+    try {
+      // Ambil sample data untuk simulasi
+      const { data: sampleData, error: sampleError } = await supabase
+        .from("material_control")
+        .select(
+          `
+          id_material_control,
+          material,
+          tanggal_report,
+          tanggal_expire,
+          status,
+          id_user,
+          email:users(email),
+          supplier:id_supplier(nama),
+          part_name:id_part_name(nama),
+          part_number:id_part_number(nama),
+          jenis_dokumen:id_jenis_dokumen(nama)
+        `
+        )
+        .eq("status", true)
+        .limit(5);
+
+      if (sampleError) {
+        return NextResponse.json({
+          success: false,
+          error: "Failed to fetch sample data",
+          details: sampleError.message,
+        });
+      }
+
+      // Simulasi categorize berdasarkan bulan
+      const today = new Date();
+
+      const oneMonth = new Date(today);
+      oneMonth.setMonth(today.getMonth() + 1);
+
+      const twoMonths = new Date(today);
+      twoMonths.setMonth(today.getMonth() + 2);
+
+      const threeMonths = new Date(today);
+      threeMonths.setMonth(today.getMonth() + 3);
+
+      const simulatedData = sampleData?.map((item, index) => {
+        let expireDate;
+        let category;
+
+        if (index % 3 === 0) {
+          expireDate = oneMonth;
+          category = "1_month";
+        } else if (index % 3 === 1) {
+          expireDate = twoMonths;
+          category = "2_months";
+        } else {
+          expireDate = threeMonths;
+          category = "3_months";
+        }
+
+        return {
+          ...item,
+          tanggal_expire: expireDate.toISOString().split("T")[0],
+          simulated_category: category,
+          months_until_expiry: Math.ceil(
+            (expireDate.getTime() - today.getTime()) /
+              (1000 * 60 * 60 * 24 * 30)
+          ),
+        };
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: "Simulated expiry data generated",
+        timestamp: new Date().toISOString(),
+        data: simulatedData,
+        summary: {
+          total_records: simulatedData?.length || 0,
+          categories: {
+            one_month:
+              simulatedData?.filter((d) => d.simulated_category === "1_month")
+                .length || 0,
+            two_months:
+              simulatedData?.filter((d) => d.simulated_category === "2_months")
+                .length || 0,
+            three_months:
+              simulatedData?.filter((d) => d.simulated_category === "3_months")
+                .length || 0,
+          },
+        },
+      });
+    } catch (error) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Simulation failed",
+          message: error.message,
+        },
+        { status: 500 }
+      );
+    }
+  }
+
+  // Test endpoint untuk preview email template
+  if (body.test === "preview_email_template") {
+    try {
+      // Generate sample data untuk template
+      const sampleRecords = [
+        {
+          material: "Sample Material 1",
+          supplier: { nama: "PT Sample Supplier 1" },
+          part_number: { nama: "PN-001" },
+          part_name: { nama: "Sample Part 1" },
+          jenis_dokumen: { nama: "Certificate" },
+          tanggal_report: new Date().toISOString(),
+          tanggal_expire: new Date(
+            Date.now() + 30 * 24 * 60 * 60 * 1000
+          ).toISOString(), // 1 month
+        },
+        {
+          material: "Sample Material 2",
+          supplier: { nama: "PT Sample Supplier 2" },
+          part_number: { nama: "PN-002" },
+          part_name: { nama: "Sample Part 2" },
+          jenis_dokumen: { nama: "Test Report" },
+          tanggal_report: new Date().toISOString(),
+          tanggal_expire: new Date(
+            Date.now() + 60 * 24 * 60 * 60 * 1000
+          ).toISOString(), // 2 months
+        },
+        {
+          material: "Sample Material 3",
+          supplier: { nama: "PT Sample Supplier 3" },
+          part_number: { nama: "PN-003" },
+          part_name: { nama: "Sample Part 3" },
+          jenis_dokumen: { nama: "Inspection Report" },
+          tanggal_report: new Date().toISOString(),
+          tanggal_expire: new Date(
+            Date.now() + 90 * 24 * 60 * 60 * 1000
+          ).toISOString(), // 3 months
+        },
+      ];
+
+      const sampleCategories = {
+        oneMonth: [sampleRecords[0]],
+        twoMonths: [sampleRecords[1]],
+        threeMonths: [sampleRecords[2]],
+      };
+
+      const emailHTML = generateMonthlyEmailHTML(
+        sampleRecords,
+        sampleCategories
+      );
+
+      return NextResponse.json({
+        success: true,
+        message: "Email template preview generated",
+        timestamp: new Date().toISOString(),
+        preview_data: {
+          total_records: sampleRecords.length,
+          categories: sampleCategories,
+        },
+        html_content: emailHTML,
+      });
+    } catch (error) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Template preview failed",
+          message: error.message,
         },
         { status: 500 }
       );
@@ -104,45 +300,70 @@ async function handleCronRequest(request, method) {
     console.log("Recipients target: wildanrizki9560@gmail.com");
 
     console.log(
-      "🕐 Daily email reminder cron job started at:",
+      "🕐 Monthly email reminder cron job started at:",
       new Date().toISOString()
     );
     console.log("📡 Request source:", isVercelCron ? "Vercel Cron" : "Manual");
     console.log("🔧 Request method:", method);
 
-    // Calculate date range (3 days from now)
+    // Calculate date ranges for 1, 2, and 3 months from now
     const today = new Date();
-    const threeDaysFromNow = new Date();
-    threeDaysFromNow.setDate(today.getDate() + 3);
 
-    const todayStr = today.toISOString().split("T")[0];
-    const threeDaysStr = threeDaysFromNow.toISOString().split("T")[0];
+    // 3 months from now (90 days tolerance)
+    const threeMonthsFromNow = new Date();
+    threeMonthsFromNow.setMonth(today.getMonth() + 3);
+    const threeMonthsRange = {
+      start: new Date(threeMonthsFromNow.getTime() - 3 * 24 * 60 * 60 * 1000), // 3 days before
+      end: new Date(threeMonthsFromNow.getTime() + 3 * 24 * 60 * 60 * 1000), // 3 days after
+    };
+
+    // 2 months from now
+    const twoMonthsFromNow = new Date();
+    twoMonthsFromNow.setMonth(today.getMonth() + 2);
+    const twoMonthsRange = {
+      start: new Date(twoMonthsFromNow.getTime() - 3 * 24 * 60 * 60 * 1000),
+      end: new Date(twoMonthsFromNow.getTime() + 3 * 24 * 60 * 60 * 1000),
+    };
+
+    // 1 month from now
+    const oneMonthFromNow = new Date();
+    oneMonthFromNow.setMonth(today.getMonth() + 1);
+    const oneMonthRange = {
+      start: new Date(oneMonthFromNow.getTime() - 3 * 24 * 60 * 60 * 1000),
+      end: new Date(oneMonthFromNow.getTime() + 3 * 24 * 60 * 60 * 1000),
+    };
+
+    // Also check for documents expiring within 3 months (for comprehensive list)
+    const threeMonthsMax = new Date();
+    threeMonthsMax.setMonth(today.getMonth() + 3);
+
+    const todayStr = dayjs().format("YYYY-MM-DD");
+    const threeMonthsMaxStr = dayjs().add(3, "month").format("YYYY-MM-DD");
 
     console.log(
-      `📅 Checking expiry dates between ${todayStr} and ${threeDaysStr}`
+      `📅 Checking expiry dates between ${todayStr} and ${threeMonthsMaxStr}`
     );
 
-    // Get records expiring in the next 3 days
+    // Get records expiring within the next 3 months
     const { data: expiringRecords, error: queryError } = await supabase
       .from("material_control")
       .select(
         `
-        id_material_control,
-        material,
-        tanggal_report,
-        tanggal_expire,
-        status,
-        id_user,
-        email:users(email),
-        supplier:id_supplier(nama),
-        part_name:id_part_name(nama),
-        part_number:id_part_number(nama),
-        jenis_dokumen:id_jenis_dokumen(nama)
-       `
+    id_material_control,
+    material,
+    tanggal_report,
+    tanggal_expire,
+    status,
+    id_user,
+    email:users(email),
+    supplier:id_supplier(nama),
+    part_name:id_part_name(nama),
+    part_number:id_part_number(nama),
+    jenis_dokumen:id_jenis_dokumen(nama)
+    `
       )
-      .eq("status", true)
       .gte("tanggal_expire", todayStr)
-      .lte("tanggal_expire", threeDaysStr);
+      .lte("tanggal_expire", threeMonthsMaxStr);
 
     if (queryError) {
       console.error("❌ Database query error:", queryError);
@@ -152,7 +373,80 @@ async function handleCronRequest(request, method) {
       );
     }
 
-    console.log(`📊 Found ${expiringRecords?.length || 0} expiring records`);
+    console.log(
+      `📊 Found ${expiringRecords?.length || 0} expiring records within 3 months`
+    );
+
+    // Filter records into monthly categories
+    const monthlyCategories = categorizeRecordsByMonth(expiringRecords, {
+      oneMonth: oneMonthRange,
+      twoMonths: twoMonthsRange,
+      threeMonths: threeMonthsRange,
+    });
+
+    console.log("📊 Monthly breakdown:", {
+      threeMonths: monthlyCategories.threeMonths.length,
+      twoMonths: monthlyCategories.twoMonths.length,
+      oneMonth: monthlyCategories.oneMonth.length,
+      others: monthlyCategories.others.length,
+    });
+
+    // Check if we should send emails today (only send for specific monthly milestones)
+    const recordsToNotify = [
+      ...monthlyCategories.threeMonths,
+      ...monthlyCategories.twoMonths,
+      ...monthlyCategories.oneMonth,
+    ];
+
+    if (!recordsToNotify || recordsToNotify.length === 0) {
+      console.log(
+        "✅ No monthly milestone records found - cron job completed successfully"
+      );
+
+      // Log to database
+      const { error: logError } = await supabase.from("cron_logs").insert({
+        job_name: "monthly-email-reminder",
+        execution_time: new Date().toISOString(),
+        records_found: expiringRecords?.length || 0,
+        status: "completed",
+        emails_sent: 0,
+        result: "No monthly milestone records found",
+        details: {
+          total_within_3months: expiringRecords?.length || 0,
+          monthly_breakdown: {
+            three_months: monthlyCategories.threeMonths.length,
+            two_months: monthlyCategories.twoMonths.length,
+            one_month: monthlyCategories.oneMonth.length,
+            others: monthlyCategories.others.length,
+          },
+          method: method,
+          source: isVercelCron ? "vercel-cron" : "manual",
+        },
+      });
+
+      if (logError) {
+        console.warn("Failed to log cron execution:", logError);
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: "Cron job completed - no monthly milestone records found",
+        timestamp: new Date().toISOString(),
+        details: {
+          total_expiring_records: expiringRecords?.length || 0,
+          monthly_milestones: 0,
+          emails_sent: 0,
+          method: method,
+          source: isVercelCron ? "vercel-cron" : "manual",
+          breakdown: {
+            three_months: monthlyCategories.threeMonths.length,
+            two_months: monthlyCategories.twoMonths.length,
+            one_month: monthlyCategories.oneMonth.length,
+            others: monthlyCategories.others.length,
+          },
+        },
+      });
+    }
 
     function delay(ms) {
       return new Promise((resolve) => setTimeout(resolve, ms));
@@ -177,8 +471,9 @@ async function handleCronRequest(request, method) {
       return grouped;
     }
 
-    const groupedByUser = groupByUser(expiringRecords);
-    console.log(groupedByUser);
+    const groupedByUser = groupByUser(recordsToNotify);
+    console.log("👥 Users to notify:", Object.keys(groupedByUser).length);
+
     let totalEmailsSent = 0;
     let totalEmailsFailed = 0;
 
@@ -190,8 +485,15 @@ async function handleCronRequest(request, method) {
       },
     ] of Object.entries(groupedByUser)) {
       try {
-        const emailHTML = generateConsolidatedEmailHTML(records);
-        const emailSubject = `🚨 Peringatan: ${records.length} Dokumen Anda Akan Kedaluwarsa`;
+        // Categorize this user's records
+        const userCategories = categorizeRecordsByMonth(records, {
+          oneMonth: oneMonthRange,
+          twoMonths: twoMonthsRange,
+          threeMonths: threeMonthsRange,
+        });
+
+        const emailHTML = generateMonthlyEmailHTML(records, userCategories);
+        const emailSubject = `📅 Pengingat Bulanan: ${records.length} Dokumen Anda Akan Kedaluwarsa`;
 
         const emailResult = await transporter.sendMail({
           from: `"Portal Dokumen" <${process.env.SMTP_FROM}>`,
@@ -203,7 +505,7 @@ async function handleCronRequest(request, method) {
         totalEmailsSent++;
 
         await supabase.from("email_logs").insert({
-          action: "cron_expiry_reminder_user",
+          action: "cron_monthly_expiry_reminder",
           id_user: userId,
           records_count: records.length,
           emails_sent: 1,
@@ -211,9 +513,14 @@ async function handleCronRequest(request, method) {
           recipients: email,
           created_at: new Date().toISOString(),
           details: {
-            email_type: "per_user",
+            email_type: "monthly_reminder",
             materials: records.map((r) => r.material),
             message_id: emailResult?.messageId || null,
+            monthly_breakdown: {
+              three_months: userCategories.threeMonths.length,
+              two_months: userCategories.twoMonths.length,
+              one_month: userCategories.oneMonth.length,
+            },
           },
         });
 
@@ -223,7 +530,7 @@ async function handleCronRequest(request, method) {
         totalEmailsFailed++;
 
         await supabase.from("email_logs").insert({
-          action: "cron_expiry_reminder_user",
+          action: "cron_monthly_expiry_reminder",
           id_user: userId,
           records_count: records.length,
           emails_sent: 0,
@@ -232,7 +539,7 @@ async function handleCronRequest(request, method) {
           created_at: new Date().toISOString(),
           details: {
             error: emailError.message,
-            email_type: "per_user",
+            email_type: "monthly_reminder",
             materials: records.map((r) => r.material),
           },
         });
@@ -247,86 +554,27 @@ async function handleCronRequest(request, method) {
       }
     }
 
-    // Always log cron job execution
-    const cronLogData = {
-      job_name: "daily-email-reminder",
-      execution_time: new Date().toISOString(),
-      records_found: expiringRecords?.length || 0,
-      status: "started",
-      details: {
-        date_range: { from: todayStr, to: threeDaysStr },
-        method: method,
-        source: isVercelCron ? "vercel-cron" : "manual",
-        expiring_records:
-          expiringRecords?.map((r) => ({
-            material: r.material,
-            expire_date: r.tanggal_expire,
-          })) || [],
-      },
-    };
-
-    if (!expiringRecords || expiringRecords.length === 0) {
-      console.log(
-        "✅ No expiring records found - cron job completed successfully"
-      );
-
-      // Log to database
-      const { error: logError } = await supabase.from("cron_logs").insert({
-        ...cronLogData,
-        status: "completed",
-        emails_sent: 0,
-        result: "No expiring records found",
-      });
-
-      if (logError) {
-        console.warn("Failed to log cron execution:", logError);
-      }
-
-      return NextResponse.json({
-        success: true,
-        message: "Cron job completed - no expiring records found",
-        timestamp: new Date().toISOString(),
-        details: {
-          expiring_records: 0,
-          emails_sent: 0,
-          method: method,
-          source: isVercelCron ? "vercel-cron" : "manual",
-        },
-      });
-    }
-
-    // Log to email_logs table
-    // const { error: emailLogError } = await supabase.from("email_logs").insert({
-    //   action: "cron_expiry_reminder_consolidated",
-    //   records_count: expiringRecords.length,
-    //   emails_sent: successful,
-    //   emails_failed: failed,
-    //   recipients: recipients || "",
-    //   created_at: new Date().toISOString(),
-    //   details: {
-    //     email_type: "consolidated",
-    //     materials: expiringRecords.map((r) => r.material),
-    //     message_id: emailResult?.messageId || null,
-    //     smtp_from: process.env.SMTP_FROM,
-    //     smtp_user: process.env.SMTP_USER,
-    //   },
-    // });
-
-    // if (emailLogError) {
-    //   console.warn("Failed to log email activity:", emailLogError);
-    // }
-
     // Log to cron_logs table
     const { error: cronLogError } = await supabase.from("cron_logs").insert({
-      ...cronLogData,
+      job_name: "monthly-email-reminder",
+      execution_time: new Date().toISOString(),
+      records_found: recordsToNotify.length,
       status: "completed",
-      emails_sent: successful,
-      emails_failed: failed,
-      result:
-        successful > 0
-          ? `Berhasil mengirim 1 email konsolidasi dengan ${expiringRecords.length} material`
-          : `Gagal mengirim email konsolidasi`,
+      emails_sent: totalEmailsSent,
+      emails_failed: totalEmailsFailed,
+      result: `Berhasil mengirim ${totalEmailsSent} email bulanan dengan ${recordsToNotify.length} material`,
       completed_at: new Date().toISOString(),
+      details: {
+        total_within_3months: expiringRecords?.length || 0,
+        monthly_breakdown: {
+          three_months: monthlyCategories.threeMonths.length,
+          two_months: monthlyCategories.twoMonths.length,
+          one_month: monthlyCategories.oneMonth.length,
+          others: monthlyCategories.others.length,
+        },
+        method: method,
+        source: isVercelCron ? "vercel-cron" : "manual",
+      },
     });
 
     if (cronLogError) {
@@ -334,24 +582,27 @@ async function handleCronRequest(request, method) {
     }
 
     console.log(
-      `🎉 Cron job completed successfully - Consolidated Email: ${
-        successful > 0 ? "Sent" : "Failed"
-      }`
+      `🎉 Monthly cron job completed successfully - Emails sent: ${totalEmailsSent}, Failed: ${totalEmailsFailed}`
     );
 
     return NextResponse.json({
       success: true,
-      message: "Daily email reminder cron job completed successfully",
+      message: "Monthly email reminder cron job completed successfully",
       timestamp: new Date().toISOString(),
       details: {
-        expiring_records: expiringRecords.length,
-        emails_sent: successful,
-        emails_failed: failed,
-        recipients: recipients || "",
-        email_type: "consolidated",
+        total_expiring_records: expiringRecords?.length || 0,
+        monthly_milestone_records: recordsToNotify.length,
+        emails_sent: totalEmailsSent,
+        emails_failed: totalEmailsFailed,
+        email_type: "monthly_reminder",
         method: method,
         source: isVercelCron ? "vercel-cron" : "manual",
-        message_id: emailResult?.messageId || null,
+        breakdown: {
+          three_months: monthlyCategories.threeMonths.length,
+          two_months: monthlyCategories.twoMonths.length,
+          one_month: monthlyCategories.oneMonth.length,
+          others: monthlyCategories.others.length,
+        },
         smtp_config: {
           from: process.env.SMTP_FROM,
           user: process.env.SMTP_USER,
@@ -364,7 +615,7 @@ async function handleCronRequest(request, method) {
 
     // Log error to database
     const { error: logError } = await supabase.from("cron_logs").insert({
-      job_name: "daily-email-reminder",
+      job_name: "monthly-email-reminder",
       execution_time: new Date().toISOString(),
       status: "failed",
       result: `Error: ${error.message}`,
@@ -377,7 +628,7 @@ async function handleCronRequest(request, method) {
 
     return NextResponse.json(
       {
-        error: "Cron job failed",
+        error: "Monthly cron job failed",
         message: error.message,
         timestamp: new Date().toISOString(),
       },
@@ -386,104 +637,139 @@ async function handleCronRequest(request, method) {
   }
 }
 
-// Consolidated Email HTML template
-function generateConsolidatedEmailHTML(records) {
-  // Sort records by days until expiry (most urgent first)
-  const sortedRecords = records.sort((a, b) => {
-    const daysA = Math.ceil(
-      (new Date(a.tanggal_expire).getTime() - new Date().getTime()) /
-        (1000 * 60 * 60 * 24)
-    );
-    const daysB = Math.ceil(
-      (new Date(b.tanggal_expire).getTime() - new Date().getTime()) /
-        (1000 * 60 * 60 * 24)
-    );
-    return daysA - daysB;
+// Helper function to categorize records by monthly milestones
+function categorizeRecordsByMonth(records, ranges) {
+  const categories = {
+    threeMonths: [],
+    twoMonths: [],
+    oneMonth: [],
+    others: [],
+  };
+
+  if (!records) return categories;
+
+  records.forEach((record) => {
+    const expireDate = new Date(record.tanggal_expire);
+
+    if (
+      expireDate >= ranges.threeMonths.start &&
+      expireDate <= ranges.threeMonths.end
+    ) {
+      categories.threeMonths.push(record);
+    } else if (
+      expireDate >= ranges.twoMonths.start &&
+      expireDate <= ranges.twoMonths.end
+    ) {
+      categories.twoMonths.push(record);
+    } else if (
+      expireDate >= ranges.oneMonth.start &&
+      expireDate <= ranges.oneMonth.end
+    ) {
+      categories.oneMonth.push(record);
+    } else {
+      categories.others.push(record);
+    }
   });
 
-  // Generate summary statistics
-  const today = new Date();
-  const expiring1Day = sortedRecords.filter((r) => {
-    const days = Math.ceil(
-      (new Date(r.tanggal_expire).getTime() - today.getTime()) /
-        (1000 * 60 * 60 * 24)
+  return categories;
+}
+
+// Monthly Email HTML template
+function generateMonthlyEmailHTML(records, categories) {
+  // Sort records by months until expiry (most urgent first)
+  const sortedRecords = records.sort((a, b) => {
+    const monthsA = Math.ceil(
+      (new Date(a.tanggal_expire).getTime() - new Date().getTime()) /
+        (1000 * 60 * 60 * 24 * 30)
     );
-    return days === 1;
-  }).length;
-
-  const expiring2Days = sortedRecords.filter((r) => {
-    const days = Math.ceil(
-      (new Date(r.tanggal_expire).getTime() - today.getTime()) /
-        (1000 * 60 * 60 * 24)
+    const monthsB = Math.ceil(
+      (new Date(b.tanggal_expire).getTime() - new Date().getTime()) /
+        (1000 * 60 * 60 * 24 * 30)
     );
-    return days === 2;
-  }).length;
+    return monthsA - monthsB;
+  });
 
-  const expiring3Days = sortedRecords.filter((r) => {
-    const days = Math.ceil(
-      (new Date(r.tanggal_expire).getTime() - today.getTime()) /
-        (1000 * 60 * 60 * 24)
-    );
-    return days === 3;
-  }).length;
+  // Generate material cards HTML grouped by months
+  const generateMaterialCards = (
+    categoryRecords,
+    categoryTitle,
+    badgeClass
+  ) => {
+    if (categoryRecords.length === 0) return "";
 
-  // Generate material cards HTML
-  const materialsHTML = sortedRecords
-    .map((record) => {
-      const daysUntilExpiry = Math.ceil(
-        (new Date(record.tanggal_expire).getTime() - new Date().getTime()) /
-          (1000 * 60 * 60 * 24)
-      );
+    const cardsHTML = categoryRecords
+      .map((record) => {
+        const monthsUntilExpiry = Math.floor(
+          (new Date(record.tanggal_expire).getTime() - new Date().getTime()) /
+            (1000 * 60 * 60 * 24 * 30)
+        );
 
-      const badgeClass =
-        daysUntilExpiry === 1
-          ? "critical"
-          : daysUntilExpiry === 2
-            ? "warning"
-            : "alert";
-
-      return `
-       <div class="material-card">
-         <div class="material-header">
-           <h4>${record.material}</h4>
-           <span class="badge ${badgeClass}">${daysUntilExpiry} hari lagi</span>
+        return `
+         <div class="material-card">
+           <div class="material-header">
+             <h4>${record.material}</h4>
+             <span class="badge ${badgeClass}">${monthsUntilExpiry} bulan lagi</span>
+           </div>
+           <table class="info-table">
+             <tr>
+               <td>Supplier</td>
+               <td>${record.supplier?.nama || "Tidak ditentukan"}</td>
+             </tr>
+             <tr>
+               <td>Part Number</td>
+               <td>${record.part_number?.nama || "Tidak ditentukan"}</td>
+             </tr>
+             <tr>
+               <td>Part Name</td>
+               <td>${record.part_name?.nama || "Tidak ditentukan"}</td>
+             </tr>
+             <tr>
+               <td>Jenis Dokumen</td>
+               <td>${record.jenis_dokumen?.nama || "Tidak ditentukan"}</td>
+             </tr>
+             <tr>
+               <td>Tanggal Laporan</td>
+               <td>${
+                 record.tanggal_report
+                   ? new Date(record.tanggal_report).toLocaleDateString("id-ID")
+                   : "Tidak ditentukan"
+               }</td>
+             </tr>
+             <tr>
+               <td>Tanggal Kedaluwarsa</td>
+               <td class="urgent">${new Date(
+                 record.tanggal_expire
+               ).toLocaleDateString("id-ID")}</td>
+             </tr>
+           </table>
          </div>
-         <table class="info-table">
-           <tr>
-             <td>Supplier</td>
-             <td>${record.supplier?.nama || "Tidak ditentukan"}</td>
-           </tr>
-           <tr>
-             <td>Part Number</td>
-             <td>${record.part_number?.nama || "Tidak ditentukan"}</td>
-           </tr>
-           <tr>
-             <td>Part Name</td>
-             <td>${record.part_name?.nama || "Tidak ditentukan"}</td>
-           </tr>
-           <tr>
-             <td>Jenis Dokumen</td>
-             <td>${record.jenis_dokumen?.nama || "Tidak ditentukan"}</td>
-           </tr>
-           <tr>
-             <td>Tanggal Laporan</td>
-             <td>${
-               record.tanggal_report
-                 ? new Date(record.tanggal_report).toLocaleDateString("id-ID")
-                 : "Tidak ditentukan"
-             }</td>
-           </tr>
-           <tr>
-             <td>Tanggal Kedaluwarsa</td>
-             <td class="urgent">${new Date(
-               record.tanggal_expire
-             ).toLocaleDateString("id-ID")}</td>
-           </tr>
-         </table>
-       </div>
-     `;
-    })
-    .join("");
+       `;
+      })
+      .join("");
+
+    return `
+      <div class="category-section">
+        <h3 class="category-title">${categoryTitle} (${categoryRecords.length})</h3>
+        ${cardsHTML}
+      </div>
+    `;
+  };
+
+  const oneMonthHTML = generateMaterialCards(
+    categories.oneMonth,
+    "📋 Expire dalam 1 Bulan",
+    "critical"
+  );
+  const twoMonthsHTML = generateMaterialCards(
+    categories.twoMonths,
+    "📋 Expire dalam 2 Bulan",
+    "warning"
+  );
+  const threeMonthsHTML = generateMaterialCards(
+    categories.threeMonths,
+    "📋 Expire dalam 3 Bulan",
+    "alert"
+  );
 
   return `
      <!DOCTYPE html>
@@ -491,9 +777,7 @@ function generateConsolidatedEmailHTML(records) {
      <head>
        <meta charset="utf-8">
        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-       <title>Pemberitahuan Kedaluwarsa Dokumen - ${
-         records.length
-       } Material</title>
+       <title>Pengingat Bulanan Kedaluwarsa Dokumen - ${records.length} Material</title>
        <style>
          body { 
            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -512,7 +796,7 @@ function generateConsolidatedEmailHTML(records) {
            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
          }
          .header { 
-           background: linear-gradient(135deg, #dc2626, #b91c1c);
+           background: linear-gradient(135deg, #3b82f6, #2563eb);
            color: white; 
            padding: 40px 30px; 
            text-align: center; 
@@ -532,14 +816,14 @@ function generateConsolidatedEmailHTML(records) {
            padding: 40px 30px;
          }
          .alert { 
-           background: linear-gradient(135deg, #fef2f2, #fee2e2); 
-           border-left: 6px solid #dc2626; 
+           background: linear-gradient(135deg, #eff6ff, #dbeafe); 
+           border-left: 6px solid #3b82f6; 
            padding: 20px; 
            margin: 0 0 30px 0;
            border-radius: 0 8px 8px 0;
          }
          .alert strong {
-           color: #dc2626;
+           color: #1d4ed8;
            font-size: 16px;
          }
          .summary {
@@ -575,6 +859,16 @@ function generateConsolidatedEmailHTML(records) {
          .critical-number { color: #dc2626; }
          .warning-number { color: #f59e0b; }
          .alert-number { color: #3b82f6; }
+         .category-section {
+           margin: 30px 0;
+         }
+         .category-title {
+           margin: 30px 0 20px 0; 
+           color: #1f2937; 
+           font-size: 22px;
+           padding-bottom: 10px;
+           border-bottom: 3px solid #e5e7eb;
+         }
          .material-card {
            margin: 25px 0;
            border: 1px solid #e5e7eb;
@@ -594,7 +888,6 @@ function generateConsolidatedEmailHTML(records) {
            align-items: center;
            border-bottom: 1px solid #e5e7eb;
          }
-
          .material-header h4 {
            margin: 0;
            color: #1f2937;
@@ -602,7 +895,6 @@ function generateConsolidatedEmailHTML(records) {
            font-weight: 700;
            line-height: 1;
          }
-
          .material-header .badge {
            padding: 4px 12px;
            border-radius: 20px;
@@ -615,7 +907,6 @@ function generateConsolidatedEmailHTML(records) {
            align-items: center;
            justify-content: center;
          }
-
          .info-table { 
            width: 100%; 
            border-collapse: collapse;
@@ -717,49 +1008,49 @@ function generateConsolidatedEmailHTML(records) {
      <body>
        <div class="container">
          <div class="header">
-           <h1>🚨 Peringatan Kedaluwarsa Dokumen</h1>
-           <p>${records.length} Dokumen Memerlukan Perhatian Segera</p>
+           <h1>📅 Pengingat Bulanan Dokumen</h1>
+           <p>${records.length} Dokumen Memerlukan Perhatian dalam 3 Bulan Kedepan</p>
          </div>
          
          <div class="content">
            <div class="alert">
-             <strong>⚠️ Peringatan Kritis:</strong> Anda memiliki <strong>${
+             <strong>📊 Pengingat Bulanan:</strong> Anda memiliki <strong>${
                records.length
-             } dokumen</strong> yang akan kedaluwarsa dalam 3 hari ke depan. Diperlukan tindakan segera untuk menjaga kepatuhan.
+             } dokumen</strong> yang akan kedaluwarsa dalam 1-3 bulan kedepan. Mohon rencanakan pembaruan dokumen sesuai timeline.
            </div>
            
            <div class="summary">
-             <h4>📊 Ringkasan Kedaluwarsa</h4>
+             <h4>📊 Ringkasan Bulanan Kedaluwarsa</h4>
              <div class="summary-grid">
                <div class="summary-item">
-                 <div class="summary-number critical-number">${expiring1Day}</div>
-                 <div>Besok</div>
+                 <div class="summary-number critical-number">${categories.oneMonth.length}</div>
+                 <div>1 Bulan</div>
                </div>
                <div class="summary-item">
-                 <div class="summary-number warning-number">${expiring2Days}</div>
-                 <div>2 Hari</div>
+                 <div class="summary-number warning-number">${categories.twoMonths.length}</div>
+                 <div>2 Bulan</div>
                </div>
                <div class="summary-item">
-                 <div class="summary-number alert-number">${expiring3Days}</div>
-                 <div>3 Hari</div>
+                 <div class="summary-number alert-number">${categories.threeMonths.length}</div>
+                 <div>3 Bulan</div>
                </div>
              </div>
            </div>
            
-           <h3 style="margin: 30px 0 20px 0; color: #1f2937; font-size: 22px;">📋 Detail Dokumen (${
-             records.length
-           })</h3>
-           ${materialsHTML}
+           ${oneMonthHTML}
+           ${twoMonthsHTML}
+           ${threeMonthsHTML}
            
            <div class="actions">
-             <h4>🔧 Tindakan yang Diperlukan</h4>
+             <h4>🔧 Rencana Tindakan Bulanan</h4>
              <ul>
-                <li><strong>Tinjau Segera:</strong> Verifikasi semua dokumen yang akan kedaluwarsa dan status kepatuhannya</li>
-                <li><strong>Hubungi Pemasok:</strong> Minta sertifikat dokumen yang diperbarui dari pemasok terkait</li>
-                <li><strong>Manajemen Dokumen:</strong> Unggah sertifikat yang diperbarui ke sistem</li>
-                <li><strong>Jaminan Kualitas:</strong> Pastikan semua material memenuhi spesifikasi saat ini</li>
-                <li><strong>Pembaruan Sistem:</strong> Perbarui catatan material dengan tanggal kedaluwarsa baru</li>
-                <li><strong>Notifikasi Pemangku Kepentingan:</strong> Informasikan tim terkait tentang status material</li>
+                <li><strong>Review Berkala:</strong> Evaluasi status dokumen setiap bulan dan prioritaskan yang akan expire</li>
+                <li><strong>Koordinasi Supplier:</strong> Hubungi pemasok 2-3 bulan sebelum expire untuk meminta pembaruan</li>
+                <li><strong>Tracking System:</strong> Pantau progress pembaruan dokumen melalui sistem portal</li>
+                <li><strong>Quality Assurance:</strong> Pastikan dokumen yang diperbarui memenuhi standar terbaru</li>
+                <li><strong>Documentation:</strong> Update catatan material dengan sertifikat dan tanggal expire baru</li>
+                <li><strong>Stakeholder Notification:</strong> Informasikan tim terkait tentang jadwal pembaruan dokumen</li>
+                <li><strong>Contingency Planning:</strong> Siapkan rencana alternatif jika ada kendala pembaruan dokumen</li>
              </ul>
            </div>
          </div>
@@ -769,7 +1060,7 @@ function generateConsolidatedEmailHTML(records) {
            <p><small>Email dikirim dari: ${
              process.env.SMTP_FROM
            } ke: wildanrizki9560@gmail.com</small></p>
-           <p><small>Laporan konsolidasi ini dikirim setiap hari pada pukul 23:00 UTC. Mohon untuk tidak membalas email ini.</small></p>
+           <p><small>Pengingat bulanan ini dikirim setiap hari pada pukul 23:00 UTC untuk milestone 1, 2, dan 3 bulan sebelum expire. Mohon untuk tidak membalas email ini.</small></p>
          </div>
          
          <div class="timestamp">

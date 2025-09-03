@@ -1606,13 +1606,14 @@ const MillSheet = () => {
                 loading ||
                 !formData.material.trim() ||
                 !formData.id_jenis_dokumen ||
-                !formData.id_supplier ||
                 !formData.tanggal_expire ||
                 !formData.tanggal_report ||
                 (session?.user?.role === "Supplier"
                   ? !formData.part_name_manual || !formData.part_number_manual
                   : session?.user?.role === "Author"
-                    ? !formData.id_part_name || !formData.id_part_number
+                    ? !formData.id_part_name ||
+                      !formData.id_part_number ||
+                      !formData.id_supplier
                     : false)
               }
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors"
