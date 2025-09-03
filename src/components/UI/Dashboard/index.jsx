@@ -177,7 +177,7 @@ const StatusBadge = ({ status }) => {
     } else if (status === "OK") {
       return { text: "OK", color: "bg-green-100 text-green-800" };
     } else if (status === "PERLU UPDATE") {
-      return { text: "PERLU UPDATE", color: "bg-green-100 text-green-800" };
+      return { text: "PERLU UPDATE", color: "bg-yellow-100 text-yellow-800" };
     } else {
       return { text: "Unknown", color: "bg-gray-100 text-gray-800" };
     }
@@ -215,13 +215,13 @@ const MillSheet = () => {
     material: "",
     tanggal_report: "",
     tanggal_expire: "",
-    status: "OK", // perlu cek tanggal dulu saat menambah dokumen baru
+    status: "OK", // Default status
     id_supplier: "",
     id_jenis_dokumen: "",
     id_part_number: "",
     id_part_name: "",
     document_url: "",
-    // NEW: Manual input fields for Supplier role
+    // Manual input fields for Supplier role
     part_name_manual: "",
     part_number_manual: "",
   });
@@ -235,10 +235,46 @@ const MillSheet = () => {
     order: "asc",
   });
 
-  // NEW: Filter state for document type
+  // Filter state for document type
   const [documentTypeFilter, setDocumentTypeFilter] = useState("");
 
   const { data: session } = useSession();
+
+  const today = dayjs().format("YYYY-MM-DD");
+
+  // NEW: Function to determine document status based on expire date
+  const determineDocumentStatus = (expireDate) => {
+    if (!expireDate) return "OK"; // Default status if no expire date
+
+    const currentDate = dayjs();
+    const expireDateObj = dayjs(expireDate);
+    const threeMonthsFromNow = currentDate.add(3, "months");
+
+    // If expire date is in the past (less than today)
+    if (expireDateObj.isBefore(currentDate, "day")) {
+      return "NG";
+    }
+    // If expire date is within 3 months from now
+    else if (
+      expireDateObj.isBefore(threeMonthsFromNow, "day") ||
+      expireDateObj.isSame(threeMonthsFromNow, "day")
+    ) {
+      return "PERLU UPDATE";
+    }
+    // If expire date is more than 3 months away
+    else {
+      return "OK";
+    }
+  };
+
+  // Function to update form status when expire date changes
+  const updateStatusBasedOnExpireDate = useCallback((expireDate) => {
+    const newStatus = determineDocumentStatus(expireDate);
+    setFormData((prev) => ({
+      ...prev,
+      status: newStatus,
+    }));
+  }, []);
 
   // Fetch reference data
   const fetchReferenceData = async () => {
@@ -363,39 +399,54 @@ const MillSheet = () => {
     }
   };
 
+  // UPDATED: Enhanced function to check and update document statuses
   const checkAndUpdateExpiredDocuments = async () => {
-    console.log("Checking...");
+    console.log("Checking and updating document statuses...");
     try {
-      // Ambil semua dokumen yang sudah lewat tanggal expire dan status belum true
-      const { data: expiredDocs, error: fetchError } = await supabase
+      // Fetch all documents
+      const { data: allDocs, error: fetchError } = await supabase
         .from("material_control")
-        .select("id_material_control")
-        .lt("tanggal_expire", today)
-        .eq("status", false);
+        .select("id_material_control, tanggal_expire, status");
 
       if (fetchError) throw fetchError;
 
-      if (!expiredDocs || expiredDocs.length === 0) {
-        console.log("Tidak ada dokumen yang expired.");
+      if (!allDocs || allDocs.length === 0) {
+        console.log("No documents found.");
         return;
       }
 
-      // Update semua dokumen menjadi expired
-      const { error: updateError } = await supabase
-        .from("material_control")
-        .update({ status: true })
-        .in(
-          "id_material_control",
-          expiredDocs.map((doc) => doc.id_material_control)
-        );
+      const updates = [];
 
-      if (updateError) throw updateError;
+      allDocs.forEach((doc) => {
+        const newStatus = determineDocumentStatus(doc.tanggal_expire);
 
-      console.log(
-        `${expiredDocs.length} dokumen sudah diupdate menjadi expired.`
-      );
+        // Only update if status has changed
+        if (doc.status !== newStatus) {
+          updates.push({
+            id_material_control: doc.id_material_control,
+            status: newStatus,
+          });
+        }
+      });
+
+      if (updates.length === 0) {
+        console.log("No status updates needed.");
+        return;
+      }
+
+      // Update documents in batches
+      for (const update of updates) {
+        const { error: updateError } = await supabase
+          .from("material_control")
+          .update({ status: update.status })
+          .eq("id_material_control", update.id_material_control);
+
+        if (updateError) throw updateError;
+      }
+
+      console.log(`${updates.length} document statuses updated.`);
     } catch (error) {
-      console.error("Error updating expired documents:", error.message);
+      console.error("Error updating document statuses:", error.message);
     }
   };
 
@@ -411,7 +462,7 @@ const MillSheet = () => {
     }
   }, [session?.user?.id]);
 
-  // NEW: Get unique document types for filter options
+  // Get unique document types for filter options
   const documentTypeFilterOptions = useMemo(() => {
     const uniqueDocTypes = [
       ...new Set(
@@ -424,7 +475,7 @@ const MillSheet = () => {
     return uniqueDocTypes.map((name) => ({ nama: name, id: name }));
   }, [allData]);
 
-  // MODIFIED: Filter and sort data with document type filter
+  // Filter and sort data with document type filter
   const filteredAndSortedData = useMemo(() => {
     let filtered = allData;
 
@@ -443,7 +494,7 @@ const MillSheet = () => {
       );
     }
 
-    // NEW: Apply document type filter
+    // Apply document type filter
     if (documentTypeFilter && documentTypeFilter !== "") {
       filtered = filtered.filter(
         (item) => item.jenis_dokumen_name === documentTypeFilter
@@ -488,13 +539,13 @@ const MillSheet = () => {
     setCurrentPage(1);
   }, [searchTerm, documentTypeFilter, sortConfig]);
 
-  // NEW: Clear all filters function
+  // Clear all filters function
   const clearFilters = () => {
     setSearchTerm("");
     setDocumentTypeFilter("");
   };
 
-  // NEW: Check if any filters are active
+  // Check if any filters are active
   const hasActiveFilters =
     searchTerm.trim() !== "" || documentTypeFilter !== "";
 
@@ -523,13 +574,13 @@ const MillSheet = () => {
       material: "",
       tanggal_report: "",
       tanggal_expire: "",
-      status: false, // Default to Open
+      status: "OK", // Default status
       id_supplier: "",
       id_jenis_dokumen: "",
       id_part_number: "",
       id_part_name: "",
       document_url: "",
-      // NEW: Reset manual input fields
+      // Reset manual input fields
       part_name_manual: "",
       part_number_manual: "",
     });
@@ -549,7 +600,7 @@ const MillSheet = () => {
       id_part_number: item.id_part_number || "",
       id_part_name: item.id_part_name || "",
       document_url: item.document_url || "",
-      // NEW: Set manual fields based on current data for Supplier role
+      // Set manual fields based on current data for Supplier role
       part_name_manual:
         session?.user?.role === "Supplier" ? item.part_name_name : "",
       part_number_manual:
@@ -580,13 +631,13 @@ const MillSheet = () => {
       material: "",
       tanggal_report: "",
       tanggal_expire: "",
-      status: true, // Default to Open
+      status: "OK", // Default status
       id_supplier: "",
       id_jenis_dokumen: "",
       id_part_number: "",
       id_part_name: "",
       document_url: "",
-      // NEW: Reset manual input fields
+      // Reset manual input fields
       part_name_manual: "",
       part_number_manual: "",
     });
@@ -621,7 +672,7 @@ const MillSheet = () => {
     }
   };
 
-  // NEW: Function to find or create part name
+  // Function to find or create part name
   const findOrCreatePartName = async (partNameValue) => {
     if (!partNameValue || partNameValue.trim() === "") {
       return null;
@@ -658,7 +709,7 @@ const MillSheet = () => {
     }
   };
 
-  // NEW: Function to find or create part number
+  // Function to find or create part number
   const findOrCreatePartNumber = async (partNumberValue) => {
     if (!partNumberValue || partNumberValue.trim() === "") {
       return null;
@@ -712,7 +763,7 @@ const MillSheet = () => {
     }
   };
 
-  // MODIFIED: Function to handle form submission with role-based part processing
+  // MODIFIED: Function to handle form submission with automatic status determination
   const handleFormSubmit = async (isAdd = true) => {
     if (!formData.material.trim()) {
       toast.error("Material is required!");
@@ -735,11 +786,14 @@ const MillSheet = () => {
         }
       }
 
+      // UPDATED: Automatically determine status based on expire date
+      const determinedStatus = determineDocumentStatus(formData.tanggal_expire);
+
       let processedData = {
         material: formData.material.trim(),
         tanggal_report: formData.tanggal_report || today,
         tanggal_expire: formData.tanggal_expire,
-        status: formData.status, // Convert to boolean
+        status: determinedStatus, // Use automatically determined status
         document_url: documentUrl || null,
         id_supplier:
           session?.user?.role === "Author"
@@ -784,7 +838,7 @@ const MillSheet = () => {
         "jenis_dokumen"
       );
 
-      // NEW: Process part name and part number based on role
+      // Process part name and part number based on role
       if (session?.user?.role === "Supplier") {
         // For Supplier: use manual input and find/create records
         processedData.id_part_name = await findOrCreatePartName(
@@ -907,12 +961,20 @@ const MillSheet = () => {
   };
 
   // Handler untuk mengupdate formData
-  const handleFormDataChange = React.useCallback((field, value) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  }, []);
+  const handleFormDataChange = React.useCallback(
+    (field, value) => {
+      setFormData((prev) => ({
+        ...prev,
+        [field]: value,
+      }));
+
+      // UPDATED: Auto-update status when expire date changes
+      if (field === "tanggal_expire") {
+        updateStatusBasedOnExpireDate(value);
+      }
+    },
+    [updateStatusBasedOnExpireDate]
+  );
 
   // Handle file download
   const handleDownload = (url, filename) => {
@@ -930,8 +992,6 @@ const MillSheet = () => {
     if (!dateString) return "-";
     return new Date(dateString).toLocaleDateString("id-ID");
   };
-
-  const today = dayjs().format("YYYY-MM-DD");
 
   return (
     <div className="w-full max-w-screen mx-auto bg-gray-50 h-fit overflow-y-auto">
@@ -1469,6 +1529,36 @@ const MillSheet = () => {
               />
             </div>
 
+            {/* NEW: Status Display (Read-only) */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Document Status (Auto-calculated)
+              </label>
+              <div className="p-3 bg-gray-50 border border-gray-300 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <StatusBadge status={formData.status} />
+                  <span className="text-sm text-gray-600">
+                    {formData.tanggal_expire
+                      ? `Based on expire date: ${formatDate(formData.tanggal_expire)}`
+                      : "Please select expire date"}
+                  </span>
+                </div>
+                <div className="mt-2 text-xs text-gray-500">
+                  <p>
+                    • <strong>OK:</strong> Document expires more than 3 months
+                    from today
+                  </p>
+                  <p>
+                    • <strong>PERLU UPDATE:</strong> Document expires within 3
+                    months
+                  </p>
+                  <p>
+                    • <strong>NG:</strong> Document has already expired
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {/* File Upload */}
             <div className="md:col-span-2">
               <FileUpload
@@ -1515,13 +1605,13 @@ const MillSheet = () => {
               disabled={
                 loading ||
                 !formData.material.trim() ||
-                !formData.id_jenis_dokumen.trim() ||
+                !formData.id_jenis_dokumen ||
                 !formData.id_supplier ||
                 !formData.tanggal_expire ||
                 !formData.tanggal_report ||
-                (session?.role?.role === "Supplier"
+                (session?.user?.role === "Supplier"
                   ? !formData.part_name_manual || !formData.part_number_manual
-                  : session?.role?.role === "Author"
+                  : session?.user?.role === "Author"
                     ? !formData.id_part_name || !formData.id_part_number
                     : false)
               }
