@@ -232,7 +232,7 @@ const MillSheet = () => {
     id_jenis_dokumen: "",
     id_part_number: "",
     id_part_name: "",
-    document_url: "",
+    document_url: null,
     // Manual input fields for Supplier role
     part_name_manual: "",
     part_number_manual: "",
@@ -254,39 +254,43 @@ const MillSheet = () => {
 
   const today = dayjs().format("YYYY-MM-DD");
 
-  // NEW: Function to determine document status based on expire date
-  const determineDocumentStatus = (expireDate) => {
+  // Function to determine document status based on expire date
+  const determineDocumentStatus = (expireDate, reportDate = null) => {
     if (!expireDate) return "OK"; // Default status if no expire date
 
-    const currentDate = dayjs();
+    // Use report date if provided, otherwise use current date
+    const referenceDate = reportDate ? dayjs(reportDate) : dayjs();
     const expireDateObj = dayjs(expireDate);
-    const threeMonthsFromNow = currentDate.add(3, "months");
+    const threeMonthsFromReference = referenceDate.add(3, "months");
 
-    // If expire date is in the past (less than today)
-    if (expireDateObj.isBefore(currentDate, "day")) {
+    // If expire date is in the past (less than reference date)
+    if (expireDateObj.isBefore(referenceDate, "day")) {
       return "NG";
     }
-    // If expire date is within 3 months from now
+    // If expire date is within 3 months from reference date
     else if (
-      expireDateObj.isBefore(threeMonthsFromNow, "day") ||
-      expireDateObj.isSame(threeMonthsFromNow, "day")
+      expireDateObj.isBefore(threeMonthsFromReference, "day") ||
+      expireDateObj.isSame(threeMonthsFromReference, "day")
     ) {
       return "PERLU UPDATE";
     }
-    // If expire date is more than 3 months away
+    // If expire date is more than 3 months away from reference date
     else {
       return "OK";
     }
   };
 
   // Function to update form status when expire date changes
-  const updateStatusBasedOnExpireDate = useCallback((expireDate) => {
-    const newStatus = determineDocumentStatus(expireDate);
-    setFormData((prev) => ({
-      ...prev,
-      status: newStatus,
-    }));
-  }, []);
+  const updateStatusBasedOnExpireDate = useCallback(
+    (expireDate, reportDate = null) => {
+      const newStatus = determineDocumentStatus(expireDate, reportDate);
+      setFormData((prev) => ({
+        ...prev,
+        status: newStatus,
+      }));
+    },
+    []
+  );
 
   // Fetch reference data
   const fetchReferenceData = async () => {
@@ -365,7 +369,7 @@ const MillSheet = () => {
         id_jenis_dokumen: row.id_jenis_dokumen,
         id_part_number: row.id_part_number,
         id_part_name: row.id_part_name,
-        document_url: row.document_url,
+        document_url: row.document_url || null,
         jenis_dokumen_name: row.jenis_dokumen?.nama || "-",
         part_name_name: row.part_name?.nama || "-",
         part_number_name: row.part_number?.nama || "-",
@@ -411,14 +415,14 @@ const MillSheet = () => {
     }
   };
 
-  // UPDATED: Enhanced function to check and update document statuses
+  // Enhanced function to check and update document statuses
   const checkAndUpdateExpiredDocuments = async () => {
     console.log("Checking and updating document statuses...");
     try {
-      // Fetch all documents
+      // Fetch all documents with their report dates
       const { data: allDocs, error: fetchError } = await supabase
         .from("material_control")
-        .select("id_material_control, tanggal_expire, status");
+        .select("id_material_control, tanggal_expire, tanggal_report, status");
 
       if (fetchError) throw fetchError;
 
@@ -430,7 +434,11 @@ const MillSheet = () => {
       const updates = [];
 
       allDocs.forEach((doc) => {
-        const newStatus = determineDocumentStatus(doc.tanggal_expire);
+        // Use report date as reference instead of current date
+        const newStatus = determineDocumentStatus(
+          doc.tanggal_expire,
+          doc.tanggal_report
+        );
 
         // Only update if status has changed
         if (doc.status !== newStatus) {
@@ -610,7 +618,7 @@ const MillSheet = () => {
       id_jenis_dokumen: item.id_jenis_dokumen || "",
       id_part_number: item.id_part_number || "",
       id_part_name: item.id_part_name || "",
-      document_url: item.document_url || "",
+      document_url: item.document_url || null,
       // Set manual fields based on current data for Supplier role
       part_name_manual:
         session?.user?.role === "Supplier" ? item.part_name_name : "",
@@ -647,7 +655,7 @@ const MillSheet = () => {
       id_jenis_dokumen: "",
       id_part_number: "",
       id_part_name: "",
-      document_url: "",
+      document_url: null,
       // Reset manual input fields
       part_name_manual: "",
       part_number_manual: "",
@@ -757,6 +765,9 @@ const MillSheet = () => {
     }
   };
 
+  console.log({ formData });
+  console.log({ selectedFile });
+
   // Function to insert new reference data
   const insertNewReferenceData = async (tableName, nama) => {
     try {
@@ -793,18 +804,22 @@ const MillSheet = () => {
         } catch (uploadError) {
           console.error("File upload failed:", uploadError);
           toast.error("File upload failed: " + uploadError.message);
-          return; // Stop execution if upload fails
+          return;
         }
       }
 
-      // UPDATED: Automatically determine status based on expire date
-      const determinedStatus = determineDocumentStatus(formData.tanggal_expire);
+      // Use report date as reference for status calculation
+      const reportDateForCalculation = formData.tanggal_report || today;
+      const determinedStatus = determineDocumentStatus(
+        formData.tanggal_expire,
+        reportDateForCalculation
+      );
 
       let processedData = {
         material: formData.material.trim(),
-        tanggal_report: formData.tanggal_report || today,
+        tanggal_report: reportDateForCalculation,
         tanggal_expire: formData.tanggal_expire,
-        status: determinedStatus, // Use automatically determined status
+        status: determinedStatus, // Use automatically determined status based on report date
         document_url: documentUrl || null,
         id_supplier:
           session?.user?.role === "Author"
@@ -816,7 +831,6 @@ const MillSheet = () => {
         id_user: session?.user?.id,
       };
 
-      // Helper function to process reference data for Author role
       const processReferenceDataForAuthor = async (
         value,
         options,
@@ -976,12 +990,16 @@ const MillSheet = () => {
         [field]: value,
       }));
 
-      // UPDATED: Auto-update status when expire date changes
-      if (field === "tanggal_expire") {
-        updateStatusBasedOnExpireDate(value);
+      // Auto-update status when expire date OR report date changes
+      if (field === "tanggal_expire" || field === "tanggal_report") {
+        const updatedFormData = { ...formData, [field]: value };
+        updateStatusBasedOnExpireDate(
+          field === "tanggal_expire" ? value : updatedFormData.tanggal_expire,
+          field === "tanggal_report" ? value : updatedFormData.tanggal_report
+        );
       }
     },
-    [updateStatusBasedOnExpireDate]
+    [formData, updateStatusBasedOnExpireDate]
   );
 
   // Handle file download
@@ -1592,7 +1610,7 @@ const MillSheet = () => {
                   <p className="font-bold mb-1">Descriptions :</p>
                   <p>
                     • <strong>OK:</strong> Document expires more than 3 months
-                    from today
+                    from report date
                   </p>
                   <p>
                     • <strong>NG:</strong> Document has already expired
@@ -1655,7 +1673,11 @@ const MillSheet = () => {
                 !formData.id_jenis_dokumen ||
                 !formData.tanggal_expire ||
                 !formData.tanggal_report ||
+                // WAJIB upload file baru
                 !selectedFile ||
+                // Status dokumen HARUS "OK"
+                formData.status !== "OK" ||
+                // Validasi field berdasarkan role
                 (session?.user?.role === "Supplier"
                   ? !formData.part_name_manual || !formData.part_number_manual
                   : session?.user?.role === "Author"

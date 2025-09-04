@@ -1,4 +1,3 @@
-// app/api/cron/daily-email-reminder/route.js
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import nodemailer from "nodemailer";
@@ -10,7 +9,7 @@ const supabase = createClient(
 );
 
 // Konfigurasi email transporter (sama dengan API verifikasi)
-const transporter = nodemailer.createTransport({
+const transporter = nodemailer.createTransporter({
   host: process.env.SMTP_HOST, // smtp.gmail.com
   port: 587,
   secure: false,
@@ -96,181 +95,6 @@ export async function POST(request) {
     return handleCronRequest(testRequest, "POST-TEST");
   }
 
-  // Test endpoint untuk simulasi data expire
-  if (body.test === "simulate_expiry_data") {
-    try {
-      // Ambil sample data untuk simulasi
-      const { data: sampleData, error: sampleError } = await supabase
-        .from("material_control")
-        .select(
-          `
-          id_material_control,
-          material,
-          tanggal_report,
-          tanggal_expire,
-          status,
-          id_user,
-          email:users(email),
-          supplier:id_supplier(nama),
-          part_name:id_part_name(nama),
-          part_number:id_part_number(nama),
-          jenis_dokumen:id_jenis_dokumen(nama)
-        `
-        )
-        .eq("status", true)
-        .limit(5);
-
-      if (sampleError) {
-        return NextResponse.json({
-          success: false,
-          error: "Failed to fetch sample data",
-          details: sampleError.message,
-        });
-      }
-
-      // Simulasi categorize berdasarkan bulan
-      const today = new Date();
-
-      const oneMonth = new Date(today);
-      oneMonth.setMonth(today.getMonth() + 1);
-
-      const twoMonths = new Date(today);
-      twoMonths.setMonth(today.getMonth() + 2);
-
-      const threeMonths = new Date(today);
-      threeMonths.setMonth(today.getMonth() + 3);
-
-      const simulatedData = sampleData?.map((item, index) => {
-        let expireDate;
-        let category;
-
-        if (index % 3 === 0) {
-          expireDate = oneMonth;
-          category = "1_month";
-        } else if (index % 3 === 1) {
-          expireDate = twoMonths;
-          category = "2_months";
-        } else {
-          expireDate = threeMonths;
-          category = "3_months";
-        }
-
-        return {
-          ...item,
-          tanggal_expire: expireDate.toISOString().split("T")[0],
-          simulated_category: category,
-          months_until_expiry: Math.ceil(
-            (expireDate.getTime() - today.getTime()) /
-              (1000 * 60 * 60 * 24 * 30)
-          ),
-        };
-      });
-
-      return NextResponse.json({
-        success: true,
-        message: "Simulated expiry data generated",
-        timestamp: new Date().toISOString(),
-        data: simulatedData,
-        summary: {
-          total_records: simulatedData?.length || 0,
-          categories: {
-            one_month:
-              simulatedData?.filter((d) => d.simulated_category === "1_month")
-                .length || 0,
-            two_months:
-              simulatedData?.filter((d) => d.simulated_category === "2_months")
-                .length || 0,
-            three_months:
-              simulatedData?.filter((d) => d.simulated_category === "3_months")
-                .length || 0,
-          },
-        },
-      });
-    } catch (error) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Simulation failed",
-          message: error.message,
-        },
-        { status: 500 }
-      );
-    }
-  }
-
-  // Test endpoint untuk preview email template
-  if (body.test === "preview_email_template") {
-    try {
-      // Generate sample data untuk template
-      const sampleRecords = [
-        {
-          material: "Sample Material 1",
-          supplier: { nama: "PT Sample Supplier 1" },
-          part_number: { nama: "PN-001" },
-          part_name: { nama: "Sample Part 1" },
-          jenis_dokumen: { nama: "Certificate" },
-          tanggal_report: new Date().toISOString(),
-          tanggal_expire: new Date(
-            Date.now() + 30 * 24 * 60 * 60 * 1000
-          ).toISOString(), // 1 month
-        },
-        {
-          material: "Sample Material 2",
-          supplier: { nama: "PT Sample Supplier 2" },
-          part_number: { nama: "PN-002" },
-          part_name: { nama: "Sample Part 2" },
-          jenis_dokumen: { nama: "Test Report" },
-          tanggal_report: new Date().toISOString(),
-          tanggal_expire: new Date(
-            Date.now() + 60 * 24 * 60 * 60 * 1000
-          ).toISOString(), // 2 months
-        },
-        {
-          material: "Sample Material 3",
-          supplier: { nama: "PT Sample Supplier 3" },
-          part_number: { nama: "PN-003" },
-          part_name: { nama: "Sample Part 3" },
-          jenis_dokumen: { nama: "Inspection Report" },
-          tanggal_report: new Date().toISOString(),
-          tanggal_expire: new Date(
-            Date.now() + 90 * 24 * 60 * 60 * 1000
-          ).toISOString(), // 3 months
-        },
-      ];
-
-      const sampleCategories = {
-        oneMonth: [sampleRecords[0]],
-        twoMonths: [sampleRecords[1]],
-        threeMonths: [sampleRecords[2]],
-      };
-
-      const emailHTML = generateMonthlyEmailHTML(
-        sampleRecords,
-        sampleCategories
-      );
-
-      return NextResponse.json({
-        success: true,
-        message: "Email template preview generated",
-        timestamp: new Date().toISOString(),
-        preview_data: {
-          total_records: sampleRecords.length,
-          categories: sampleCategories,
-        },
-        html_content: emailHTML,
-      });
-    } catch (error) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Template preview failed",
-          message: error.message,
-        },
-        { status: 500 }
-      );
-    }
-  }
-
   return handleCronRequest(request, "POST");
 }
 
@@ -306,10 +130,10 @@ async function handleCronRequest(request, method) {
     console.log("📡 Request source:", isVercelCron ? "Vercel Cron" : "Manual");
     console.log("🔧 Request method:", method);
 
-    // Calculate date ranges for 1, 2, and 3 months from now
+    // Calculate date ranges for 1, 2, and 3 months from report date
     const today = new Date();
 
-    // 3 months from now (90 days tolerance)
+    // 3 months from report date (90 days tolerance)
     const threeMonthsFromNow = new Date();
     threeMonthsFromNow.setMonth(today.getMonth() + 3);
     const threeMonthsRange = {
@@ -317,7 +141,7 @@ async function handleCronRequest(request, method) {
       end: new Date(threeMonthsFromNow.getTime() + 3 * 24 * 60 * 60 * 1000), // 3 days after
     };
 
-    // 2 months from now
+    // 2 months from report date
     const twoMonthsFromNow = new Date();
     twoMonthsFromNow.setMonth(today.getMonth() + 2);
     const twoMonthsRange = {
@@ -325,7 +149,7 @@ async function handleCronRequest(request, method) {
       end: new Date(twoMonthsFromNow.getTime() + 3 * 24 * 60 * 60 * 1000),
     };
 
-    // 1 month from now
+    // 1 month from report date
     const oneMonthFromNow = new Date();
     oneMonthFromNow.setMonth(today.getMonth() + 1);
     const oneMonthRange = {
@@ -333,7 +157,7 @@ async function handleCronRequest(request, method) {
       end: new Date(oneMonthFromNow.getTime() + 3 * 24 * 60 * 60 * 1000),
     };
 
-    // Also check for documents expiring within 3 months (for comprehensive list)
+    // Also check for documents expiring within 3 months from report date
     const threeMonthsMax = new Date();
     threeMonthsMax.setMonth(today.getMonth() + 3);
 
@@ -341,10 +165,10 @@ async function handleCronRequest(request, method) {
     const threeMonthsMaxStr = dayjs().add(3, "month").format("YYYY-MM-DD");
 
     console.log(
-      `📅 Checking expiry dates between ${todayStr} and ${threeMonthsMaxStr}`
+      `📅 Checking expiry dates between ${todayStr} and ${threeMonthsMaxStr} (from report date)`
     );
 
-    // Get records expiring within the next 3 months
+    // Get records expiring within the next 3 months from report date
     const { data: expiringRecords, error: queryError } = await supabase
       .from("material_control")
       .select(
@@ -377,12 +201,15 @@ async function handleCronRequest(request, method) {
       `📊 Found ${expiringRecords?.length || 0} expiring records within 3 months`
     );
 
-    // Filter records into monthly categories
-    const monthlyCategories = categorizeRecordsByMonth(expiringRecords, {
-      oneMonth: oneMonthRange,
-      twoMonths: twoMonthsRange,
-      threeMonths: threeMonthsRange,
-    });
+    // Filter records into monthly categories based on report date
+    const monthlyCategories = categorizeRecordsByMonthFromReportDate(
+      expiringRecords,
+      {
+        oneMonth: oneMonthRange,
+        twoMonths: twoMonthsRange,
+        threeMonths: threeMonthsRange,
+      }
+    );
 
     console.log("📊 Monthly breakdown:", {
       threeMonths: monthlyCategories.threeMonths.length,
@@ -486,7 +313,7 @@ async function handleCronRequest(request, method) {
     ] of Object.entries(groupedByUser)) {
       try {
         // Categorize this user's records
-        const userCategories = categorizeRecordsByMonth(records, {
+        const userCategories = categorizeRecordsByMonthFromReportDate(records, {
           oneMonth: oneMonthRange,
           twoMonths: twoMonthsRange,
           threeMonths: threeMonthsRange,
@@ -637,8 +464,8 @@ async function handleCronRequest(request, method) {
   }
 }
 
-// Helper function to categorize records by monthly milestones
-function categorizeRecordsByMonth(records, ranges) {
+// Helper function to categorize records by monthly milestones from report date
+function categorizeRecordsByMonthFromReportDate(records, ranges) {
   const categories = {
     threeMonths: [],
     twoMonths: [],
@@ -649,21 +476,39 @@ function categorizeRecordsByMonth(records, ranges) {
   if (!records) return categories;
 
   records.forEach((record) => {
+    const reportDate = new Date(record.tanggal_report);
     const expireDate = new Date(record.tanggal_expire);
 
+    // Calculate months from report date to expiry
+    const monthsFromReport = Math.floor(
+      (expireDate.getTime() - reportDate.getTime()) / (1000 * 60 * 60 * 24 * 30)
+    );
+
+    // Check if it's close to 3 months from report date (within 3 days tolerance)
+    const threeMonthsFromReport = new Date(reportDate);
+    threeMonthsFromReport.setMonth(reportDate.getMonth() + 3);
+
+    const twoMonthsFromReport = new Date(reportDate);
+    twoMonthsFromReport.setMonth(reportDate.getMonth() + 2);
+
+    const oneMonthFromReport = new Date(reportDate);
+    oneMonthFromReport.setMonth(reportDate.getMonth() + 1);
+
+    // Check with 3 days tolerance
+    const tolerance = 3 * 24 * 60 * 60 * 1000; // 3 days in milliseconds
+
     if (
-      expireDate >= ranges.threeMonths.start &&
-      expireDate <= ranges.threeMonths.end
+      Math.abs(expireDate.getTime() - threeMonthsFromReport.getTime()) <=
+      tolerance
     ) {
       categories.threeMonths.push(record);
     } else if (
-      expireDate >= ranges.twoMonths.start &&
-      expireDate <= ranges.twoMonths.end
+      Math.abs(expireDate.getTime() - twoMonthsFromReport.getTime()) <=
+      tolerance
     ) {
       categories.twoMonths.push(record);
     } else if (
-      expireDate >= ranges.oneMonth.start &&
-      expireDate <= ranges.oneMonth.end
+      Math.abs(expireDate.getTime() - oneMonthFromReport.getTime()) <= tolerance
     ) {
       categories.oneMonth.push(record);
     } else {
@@ -678,14 +523,20 @@ function categorizeRecordsByMonth(records, ranges) {
 function generateMonthlyEmailHTML(records, categories) {
   // Sort records by months until expiry (most urgent first)
   const sortedRecords = records.sort((a, b) => {
+    const reportDateA = new Date(a.tanggal_report);
+    const expireDateA = new Date(a.tanggal_expire);
+    const reportDateB = new Date(b.tanggal_report);
+    const expireDateB = new Date(b.tanggal_expire);
+
     const monthsA = Math.ceil(
-      (new Date(a.tanggal_expire).getTime() - new Date().getTime()) /
+      (expireDateA.getTime() - reportDateA.getTime()) /
         (1000 * 60 * 60 * 24 * 30)
     );
     const monthsB = Math.ceil(
-      (new Date(b.tanggal_expire).getTime() - new Date().getTime()) /
+      (expireDateB.getTime() - reportDateB.getTime()) /
         (1000 * 60 * 60 * 24 * 30)
     );
+
     return monthsA - monthsB;
   });
 
@@ -699,8 +550,10 @@ function generateMonthlyEmailHTML(records, categories) {
 
     const cardsHTML = categoryRecords
       .map((record) => {
-        const monthsUntilExpiry = Math.floor(
-          (new Date(record.tanggal_expire).getTime() - new Date().getTime()) /
+        const reportDate = new Date(record.tanggal_report);
+        const expireDate = new Date(record.tanggal_expire);
+        const monthsFromReport = Math.floor(
+          (expireDate.getTime() - reportDate.getTime()) /
             (1000 * 60 * 60 * 24 * 30)
         );
 
@@ -708,7 +561,7 @@ function generateMonthlyEmailHTML(records, categories) {
          <div class="material-card">
            <div class="material-header">
              <h4>${record.material}</h4>
-             <span class="badge ${badgeClass}">${monthsUntilExpiry} bulan lagi</span>
+             <span class="badge ${badgeClass}">${monthsFromReport} bulan dari laporan</span>
            </div>
            <table class="info-table">
              <tr>
@@ -757,17 +610,17 @@ function generateMonthlyEmailHTML(records, categories) {
 
   const oneMonthHTML = generateMaterialCards(
     categories.oneMonth,
-    "📋 Expire dalam 1 Bulan",
+    "📋 1 Bulan dari Tanggal Laporan",
     "critical"
   );
   const twoMonthsHTML = generateMaterialCards(
     categories.twoMonths,
-    "📋 Expire dalam 2 Bulan",
+    "📋 2 Bulan dari Tanggal Laporan",
     "warning"
   );
   const threeMonthsHTML = generateMaterialCards(
     categories.threeMonths,
-    "📋 Expire dalam 3 Bulan",
+    "📋 3 Bulan dari Tanggal Laporan",
     "alert"
   );
 
@@ -1009,18 +862,18 @@ function generateMonthlyEmailHTML(records, categories) {
        <div class="container">
          <div class="header">
            <h1>📅 Pengingat Bulanan Dokumen</h1>
-           <p>${records.length} Dokumen Memerlukan Perhatian dalam 3 Bulan Kedepan</p>
+           <p>${records.length} Dokumen Memerlukan Perhatian Berdasarkan Tanggal Laporan</p>
          </div>
          
          <div class="content">
            <div class="alert">
              <strong>📊 Pengingat Bulanan:</strong> Anda memiliki <strong>${
                records.length
-             } dokumen</strong> yang akan kedaluwarsa dalam 1-3 bulan kedepan. Mohon rencanakan pembaruan dokumen sesuai timeline.
+             } dokumen</strong> yang mencapai milestone 1, 2, atau 3 bulan dari tanggal laporan. Mohon rencanakan pembaruan dokumen sesuai timeline.
            </div>
            
            <div class="summary">
-             <h4>📊 Ringkasan Bulanan Kedaluwarsa</h4>
+             <h4>📊 Ringkasan Bulanan Berdasarkan Tanggal Laporan</h4>
              <div class="summary-grid">
                <div class="summary-item">
                  <div class="summary-number critical-number">${categories.oneMonth.length}</div>
@@ -1044,8 +897,8 @@ function generateMonthlyEmailHTML(records, categories) {
            <div class="actions">
              <h4>🔧 Rencana Tindakan Bulanan</h4>
              <ul>
-                <li><strong>Review Berkala:</strong> Evaluasi status dokumen setiap bulan dan prioritaskan yang akan expire</li>
-                <li><strong>Koordinasi Supplier:</strong> Hubungi pemasok 2-3 bulan sebelum expire untuk meminta pembaruan</li>
+                <li><strong>Review Berkala:</strong> Evaluasi status dokumen setiap bulan berdasarkan tanggal laporan dan prioritaskan yang sudah mencapai milestone</li>
+                <li><strong>Koordinasi Supplier:</strong> Hubungi pemasok untuk meminta pembaruan dokumen yang sudah mencapai milestone dari tanggal laporan</li>
                 <li><strong>Tracking System:</strong> Pantau progress pembaruan dokumen melalui sistem portal</li>
                 <li><strong>Quality Assurance:</strong> Pastikan dokumen yang diperbarui memenuhi standar terbaru</li>
                 <li><strong>Documentation:</strong> Update catatan material dengan sertifikat dan tanggal expire baru</li>
@@ -1060,7 +913,7 @@ function generateMonthlyEmailHTML(records, categories) {
            <p><small>Email dikirim dari: ${
              process.env.SMTP_FROM
            } ke: wildanrizki9560@gmail.com</small></p>
-           <p><small>Pengingat bulanan ini dikirim setiap hari pada pukul 23:00 UTC untuk milestone 1, 2, dan 3 bulan sebelum expire. Mohon untuk tidak membalas email ini.</small></p>
+           <p><small>Pengingat bulanan ini dikirim setiap hari pada pukul 23:00 UTC untuk milestone 1, 2, dan 3 bulan dari tanggal laporan. Mohon untuk tidak membalas email ini.</small></p>
          </div>
          
          <div class="timestamp">
