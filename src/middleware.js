@@ -43,6 +43,7 @@ export async function middleware(req) {
         "/manage/part-number",
         "/manage/part-name",
         "/manage/supplier",
+        "/manage/users",
         "/pengaturan",
         "/tentang",
       ],
@@ -65,6 +66,7 @@ export async function middleware(req) {
       "/manage/part-number",
       "/manage/part-name",
       "/manage/supplier",
+      "/manage/users",
       "/admin/cronjob",
     ];
 

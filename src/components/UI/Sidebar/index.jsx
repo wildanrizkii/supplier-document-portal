@@ -9,6 +9,7 @@ import { LuCodesandbox, LuBox } from "react-icons/lu";
 import { IoDocumentTextOutline } from "react-icons/io5";
 import { FaListOl, FaListCheck } from "react-icons/fa6";
 import { LuUsers } from "react-icons/lu";
+import { RiUserSettingsLine } from "react-icons/ri";
 import {
   IoChevronUpOutline,
   IoChevronDownOutline,
@@ -58,6 +59,11 @@ const NAVIGATION_ITEMS = [
         name: "Supplier",
         href: "/manage/supplier",
         icon: <LuUsers size={20} />,
+      },
+      {
+        name: "Users",
+        href: "/manage/users",
+        icon: <RiUserSettingsLine size={20} />,
       },
     ],
   },
