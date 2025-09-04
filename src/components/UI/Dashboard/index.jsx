@@ -1073,7 +1073,7 @@ const MillSheet = () => {
                   <select
                     value={documentTypeFilter}
                     onChange={(e) => setDocumentTypeFilter(e.target.value)}
-                    className="px-3 py-1 h-10 w-full md:min-w-[400px] lg:min-w-[440px] border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="px-3 py-1 h-10 w-full md:min-w-[400px] lg:min-w-[440px] border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
                   >
                     <option value="">All Document Type</option>
                     {documentTypeFilterOptions.map((option) => (
