@@ -89,6 +89,7 @@ const UserManagement = () => {
         role: row.role || "",
         no_hp: row.no_hp || "",
         email_verified: row.email_verified ?? false,
+        supplier: row.id_supplier || null,
         created_at: row.created_at,
       }));
 
@@ -212,7 +213,7 @@ const UserManagement = () => {
       password: "",
       role: "Supplier",
       no_hp: "",
-      email_verified: true,
+      email_verified: false,
     });
     setShowPassword(false);
     setShowAddModal(true);
@@ -223,10 +224,11 @@ const UserManagement = () => {
     setFormData({
       nama: item.nama,
       email: item.email,
-      password: "", // Don't populate password for security
+      password: "",
       role: item.role,
       no_hp: item.no_hp,
       email_verified: item.email_verified,
+      supplier: item.supplier,
     });
     setShowPassword(false);
     setShowEditModal(true);
@@ -283,6 +285,11 @@ const UserManagement = () => {
       toast.error("Please select a role!");
       return false;
     }
+    if (!formData.supplier && formData.role === "Supplier") {
+      toast.error("Please select a supplier!");
+      return false;
+    }
+
     return true;
   };
 
@@ -390,10 +397,6 @@ const UserManagement = () => {
         formData.nama.trim()
       );
 
-      console.log(formData.email.trim().toLowerCase());
-      console.log(verificationToken);
-      console.log(formData.nama.trim());
-
       if (!emailResult.success) {
         // Jika gagal kirim email, hapus user yang baru dibuat
         await supabase.from("users").delete().eq("id", newItem.id);
@@ -421,7 +424,7 @@ const UserManagement = () => {
     try {
       setLoading(true);
 
-      // Check if email already exists (except for current user)
+      // Cek apakah email sudah dipakai user lain
       const { data: existingUser, error: checkError } = await supabase
         .from("users")
         .select("email, id_user")
@@ -434,26 +437,69 @@ const UserManagement = () => {
         return;
       }
 
+      const isEmailChanged =
+        formData.email.trim().toLowerCase() !== selectedItem.email;
+
       const updateData = {
         nama: formData.nama.trim(),
         email: formData.email.trim().toLowerCase(),
         role: formData.role,
         no_hp: formData.no_hp.trim(),
         email_verified: formData.email_verified,
+        id_supplier: formData.supplier ?? null,
       };
 
-      // Only update password if it's provided
+      // Jika password diisi → update password
       if (formData.password.trim()) {
         updateData.password = await hashPassword(formData.password);
       }
 
-      const { error } = await supabase
+      // Jika email berubah → buat token baru & reset verifikasi
+      let verificationToken = null;
+      if (isEmailChanged) {
+        verificationToken = generateVerificationToken();
+        const verificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+        updateData.email_verified = false;
+        updateData.verification_token = verificationToken;
+        updateData.verification_token_expires =
+          verificationExpiry.toISOString();
+      }
+
+      const { error, data: updatedUser } = await supabase
         .from("users")
         .update(updateData)
-        .eq("id_user", selectedItem.id);
+        .eq("id_user", selectedItem.id)
+        .select();
 
       if (error) throw error;
 
+      // Jika email berubah → kirim verifikasi
+      if (isEmailChanged && verificationToken) {
+        const emailResult = await sendVerificationEmail(
+          formData.email.trim().toLowerCase(),
+          verificationToken,
+          formData.nama.trim()
+        );
+
+        if (!emailResult.success) {
+          // rollback ke email lama + verified true
+          await supabase
+            .from("users")
+            .update({
+              email: selectedItem.email,
+              email_verified: selectedItem.email_verified,
+              verification_token: null,
+              verification_token_expires: null,
+            })
+            .eq("id_user", selectedItem.id);
+
+          toast.error("Gagal mengirim email verifikasi. Perubahan dibatalkan.");
+          return;
+        }
+      }
+
+      // Update state lokal
       setAllData((prev) =>
         prev.map((item) =>
           item.id === selectedItem.id
@@ -463,7 +509,8 @@ const UserManagement = () => {
                 email: formData.email.trim().toLowerCase(),
                 role: formData.role,
                 no_hp: formData.no_hp.trim(),
-                email_verified: formData.email_verified,
+                email_verified: updateData.email_verified,
+                supplier: formData.supplier,
               }
             : item
         )
@@ -541,25 +588,38 @@ const UserManagement = () => {
             <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
               {/* Filters */}
               <div className="flex flex-col sm:flex-row gap-2">
-                <select
-                  value={roleFilter}
-                  onChange={(e) => setRoleFilter(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="all">All Roles</option>
-                  <option value="Author">Author</option>
-                  <option value="Supplier">Supplier</option>
-                </select>
+                <div className="relative w-full md:w-auto">
+                  <select
+                    value={roleFilter}
+                    onChange={(e) => setRoleFilter(e.target.value)}
+                    className="px-3 py-1 h-10 w-full md:min-w-[400px] lg:min-w-[440px] border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
+                  >
+                    <option value="all">All Roles</option>
+                    <option value="Author">Author</option>
+                    <option value="Supplier">Supplier</option>
+                  </select>
 
-                <select
-                  value={verificationFilter}
-                  onChange={(e) => setVerificationFilter(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="all">All Status</option>
-                  <option value="verified">Verified</option>
-                  <option value="unverified">Unverified</option>
-                </select>
+                  <ChevronDown
+                    size={18}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500"
+                  />
+                </div>
+                <div className="relative w-full md:w-auto">
+                  <select
+                    value={verificationFilter}
+                    onChange={(e) => setVerificationFilter(e.target.value)}
+                    className="px-3 py-1 h-10 w-full md:min-w-[400px] lg:min-w-[440px] border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="verified">Verified</option>
+                    <option value="unverified">Unverified</option>
+                  </select>
+
+                  <ChevronDown
+                    size={18}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500"
+                  />
+                </div>
               </div>
 
               {/* Add button */}
@@ -567,7 +627,7 @@ const UserManagement = () => {
                 onClick={openAddModal}
                 disabled={loading}
                 title="Add New User"
-                className="flex items-center justify-center gap-1 py-2 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors duration-150"
+                className="flex sm:max-w-64 items-center justify-center gap-1 py-2 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors duration-150"
               >
                 <Plus size={16} />
                 Add User
@@ -651,7 +711,6 @@ const UserManagement = () => {
                     </td>
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">
                       <div className="flex items-center">
-                        <User size={16} className="text-gray-400 mr-2" />
                         <div className="truncate" title={item.nama}>
                           {item.nama}
                         </div>
@@ -659,7 +718,6 @@ const UserManagement = () => {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
                       <div className="flex items-center">
-                        <Mail size={16} className="text-gray-400 mr-2" />
                         <div className="truncate" title={item.email}>
                           {item.email}
                         </div>
@@ -813,6 +871,66 @@ const UserManagement = () => {
       >
         <div className="p-6">
           <div className="space-y-4">
+            <div className="relative">
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Role *
+              </label>
+              <div className="relative">
+                <select
+                  value={formData.role}
+                  onChange={(e) =>
+                    setFormData({ ...formData, role: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
+                  required
+                >
+                  <option value="Supplier">Supplier</option>
+                  <option value="Author">Author</option>
+                </select>
+
+                <ChevronDown
+                  size={18}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500"
+                />
+              </div>
+            </div>
+
+            {formData.role === "Supplier" && (
+              <div className="relative">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Supplier
+                </label>
+                <div className="relative">
+                  <select
+                    id="supplier"
+                    value={formData.supplier ?? ""}
+                    onChange={(e) =>
+                      setFormData({ ...formData, supplier: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
+                    required
+                  >
+                    <option value="" disabled>
+                      Pilih supplier
+                    </option>
+                    {suppliers.map((supplier) => (
+                      <option
+                        key={supplier.id_supplier}
+                        value={supplier.id_supplier}
+                      >
+                        {supplier.nama}
+                      </option>
+                    ))}
+                  </select>
+
+                  <ChevronDown
+                    size={18}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500"
+                  />
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Name *
@@ -844,6 +962,42 @@ const UserManagement = () => {
               />
             </div>
 
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="add_email_verified"
+                checked={formData.email_verified}
+                onChange={(e) =>
+                  setFormData({ ...formData, email_verified: e.target.checked })
+                }
+                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <label
+                htmlFor="add_email_verified"
+                className="ml-2 text-sm font-medium text-gray-700"
+              >
+                Send email verification?
+              </label>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Phone Number
+              </label>
+              <div className="flex items-center rounded-xl border border-gray-300 transition-all duration-200 overflow-hidden">
+                <span className="pl-4 select-none">+62</span>
+                <input
+                  type="text"
+                  value={formData.no_hp}
+                  onChange={(e) =>
+                    setFormData({ ...formData, no_hp: e.target.value })
+                  }
+                  placeholder="Enter phone number..."
+                  className="w-full px-3 py-2 focus:outline-none"
+                />
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Password *
@@ -861,6 +1015,7 @@ const UserManagement = () => {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
+                  tabIndex={-1}
                   className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -869,117 +1024,6 @@ const UserManagement = () => {
               <p className="text-xs text-gray-500 mt-1">
                 Password must be at least 6 characters long
               </p>
-            </div>
-
-            <div className="relative">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Role *
-              </label>
-              <select
-                value={formData.role}
-                onChange={(e) =>
-                  setFormData({ ...formData, role: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
-              >
-                <option value="Supplier">Supplier</option>
-                <option value="Author">Author</option>
-              </select>
-              {/* Custom dropdown icon */}
-              <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
-                <svg
-                  className="w-4 h-4 text-slate-500"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-              </div>
-            </div>
-
-            <div className="relative">
-              <label className="block text-sm font-medium text-slate-700 mb-3">
-                Supplier
-              </label>
-              <div className="relative">
-                <select
-                  id="supplier"
-                  value={formData.supplier}
-                  onChange={(e) =>
-                    setFormData({ ...formData, supplier: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
-                  required
-                >
-                  <option value="" disabled>
-                    Pilih supplier
-                  </option>
-                  {suppliers.map((supplier) => (
-                    <option
-                      key={supplier.id_supplier}
-                      value={supplier.id_supplier}
-                    >
-                      {supplier.nama}
-                    </option>
-                  ))}
-                </select>
-
-                {/* Custom dropdown icon */}
-                <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
-                  <svg
-                    className="w-4 h-4 text-slate-500"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Phone Number
-              </label>
-              <input
-                type="text"
-                value={formData.no_hp}
-                onChange={(e) =>
-                  setFormData({ ...formData, no_hp: e.target.value })
-                }
-                placeholder="Enter phone number..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="add_email_verified"
-                checked={formData.email_verified}
-                onChange={(e) =>
-                  setFormData({ ...formData, email_verified: e.target.checked })
-                }
-                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
-              />
-              <label
-                htmlFor="add_email_verified"
-                className="ml-2 text-sm font-medium text-gray-700"
-              >
-                Email Verified
-              </label>
             </div>
           </div>
 
@@ -1011,6 +1055,66 @@ const UserManagement = () => {
       <Modal isOpen={showEditModal} onClose={closeAllModals} title="Edit User">
         <div className="p-6">
           <div className="space-y-4">
+            <div className="relative">
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Role *
+              </label>
+              <div className="relative">
+                <select
+                  value={formData.role}
+                  onChange={(e) =>
+                    setFormData({ ...formData, role: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
+                  required
+                >
+                  <option value="Supplier">Supplier</option>
+                  <option value="Author">Author</option>
+                </select>
+
+                <ChevronDown
+                  size={18}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500"
+                />
+              </div>
+            </div>
+
+            {formData.role === "Supplier" && (
+              <div className="relative">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Supplier
+                </label>
+                <div className="relative">
+                  <select
+                    id="supplier"
+                    value={formData.supplier ?? ""}
+                    onChange={(e) =>
+                      setFormData({ ...formData, supplier: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
+                    required
+                  >
+                    <option value="" disabled>
+                      Pilih supplier
+                    </option>
+                    {suppliers.map((supplier) => (
+                      <option
+                        key={supplier.id_supplier}
+                        value={supplier.id_supplier}
+                      >
+                        {supplier.nama}
+                      </option>
+                    ))}
+                  </select>
+
+                  <ChevronDown
+                    size={18}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500"
+                  />
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Name *
@@ -1042,6 +1146,42 @@ const UserManagement = () => {
               />
             </div>
 
+            {/* <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="edit_email_verified"
+                checked={formData.email_verified}
+                onChange={(e) =>
+                  setFormData({ ...formData, email_verified: e.target.checked })
+                }
+                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <label
+                htmlFor="edit_email_verified"
+                className="ml-2 text-sm font-medium text-gray-700"
+              >
+                Email Verified
+              </label>
+            </div> */}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Phone Number
+              </label>
+              <div className="flex items-center rounded-xl border border-gray-300 transition-all duration-200 overflow-hidden">
+                <span className="pl-4 select-none">+62</span>
+                <input
+                  type="text"
+                  value={formData.no_hp}
+                  onChange={(e) =>
+                    setFormData({ ...formData, no_hp: e.target.value })
+                  }
+                  placeholder="Enter phone number..."
+                  className="w-full px-3 py-2 focus:outline-none"
+                />
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Password
@@ -1059,7 +1199,8 @@ const UserManagement = () => {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                  tabIndex={-1}
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors duration-200 focus:outline-none"
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
@@ -1068,55 +1209,6 @@ const UserManagement = () => {
                 Leave empty to keep current password. If changing, must be at
                 least 6 characters long.
               </p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Role *
-              </label>
-              <select
-                value={formData.role}
-                onChange={(e) =>
-                  setFormData({ ...formData, role: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="Supplier">Supplier</option>
-                <option value="Author">Author</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Phone Number
-              </label>
-              <input
-                type="text"
-                value={formData.no_hp}
-                onChange={(e) =>
-                  setFormData({ ...formData, no_hp: e.target.value })
-                }
-                placeholder="Enter phone number..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="edit_email_verified"
-                checked={formData.email_verified}
-                onChange={(e) =>
-                  setFormData({ ...formData, email_verified: e.target.checked })
-                }
-                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
-              />
-              <label
-                htmlFor="edit_email_verified"
-                className="ml-2 text-sm font-medium text-gray-700"
-              >
-                Email Verified
-              </label>
             </div>
           </div>
 

@@ -391,7 +391,7 @@ const MillSheet = () => {
         .select("check_date")
         .order("check_date", { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error && error.code !== "PGRST116") throw error;
 
@@ -695,7 +695,7 @@ const MillSheet = () => {
         .from("part_name")
         .select("id_part_name")
         .ilike("nama", partNameValue.trim())
-        .single();
+        .maybeSingle();
 
       if (!findError && existingPartName) {
         return existingPartName.id_part_name;
@@ -706,7 +706,7 @@ const MillSheet = () => {
         .from("part_name")
         .insert([{ nama: partNameValue.trim() }])
         .select("id_part_name")
-        .single();
+        .maybeSingle();
 
       if (createError) throw createError;
 
@@ -732,7 +732,7 @@ const MillSheet = () => {
         .from("part_number")
         .select("id_part_number")
         .ilike("nama", partNumberValue.trim())
-        .single();
+        .maybeSingle();
 
       if (!findError && existingPartNumber) {
         return existingPartNumber.id_part_number;
@@ -743,7 +743,7 @@ const MillSheet = () => {
         .from("part_number")
         .insert([{ nama: partNumberValue.trim() }])
         .select("id_part_number")
-        .single();
+        .maybeSingle();
 
       if (createError) throw createError;
 
@@ -764,7 +764,7 @@ const MillSheet = () => {
         .from(tableName)
         .insert([{ nama: nama.trim() }])
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;
@@ -872,9 +872,6 @@ const MillSheet = () => {
         );
       }
 
-      // Insert or update material control data
-      console.log("Processed data before insert/update:", processedData);
-
       if (isAdd) {
         // Filter out null values and id for insert
         const insertData = Object.fromEntries(
@@ -882,7 +879,6 @@ const MillSheet = () => {
             ([key, value]) => key !== "id_material_control" && value !== null
           )
         );
-        console.log("Insert data (filtered nulls and id):", insertData);
 
         const { data, error } = await supabase
           .from("material_control")
@@ -893,7 +889,7 @@ const MillSheet = () => {
           console.error("Insert error details:", error);
           throw error;
         }
-        console.log("Insert successful:", data);
+
         toast.success("Data successfully added!");
       } else {
         // Saat update hilangkan id material dan id user
@@ -1659,6 +1655,7 @@ const MillSheet = () => {
                 !formData.id_jenis_dokumen ||
                 !formData.tanggal_expire ||
                 !formData.tanggal_report ||
+                !selectedFile ||
                 (session?.user?.role === "Supplier"
                   ? !formData.part_name_manual || !formData.part_number_manual
                   : session?.user?.role === "Author"
