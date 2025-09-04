@@ -33,27 +33,39 @@ const SimpleSelect = ({
   placeholder,
   className,
   allowEmpty = true,
+  disabled,
 }) => {
   return (
-    <select
-      value={value || ""}
-      onChange={(e) => onChange(e.target.value || "")}
-      className={className}
-    >
-      {allowEmpty && (
-        <option value="">{placeholder || "Select option..."}</option>
-      )}
-      {options.map((option) => {
-        const idField = Object.keys(option).find((key) =>
-          key.startsWith("id_")
-        );
-        return (
-          <option key={option[idField]} value={option[idField]}>
-            {option.nama}
-          </option>
-        );
-      })}
-    </select>
+    <div className="relative w-full">
+      <select
+        value={value || ""}
+        onChange={(e) => onChange(e.target.value || "")}
+        disabled={disabled}
+        className={`w-full h-10 pl-3 pr-10 border border-gray-300 rounded-lg 
+                    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                    disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed
+                    appearance-none ${className}`}
+      >
+        {allowEmpty && (
+          <option value="">{placeholder || "Select option..."}</option>
+        )}
+        {options.map((option) => {
+          const idField = Object.keys(option).find((key) =>
+            key.startsWith("id_")
+          );
+          return (
+            <option key={option[idField]} value={option[idField]}>
+              {option.nama}
+            </option>
+          );
+        })}
+      </select>
+
+      <ChevronDown
+        size={18}
+        className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500"
+      />
+    </div>
   );
 };
 
@@ -67,8 +79,8 @@ const Modal = ({ isOpen, onClose, title, children, size = "max-w-md" }) => {
       style={{ backgroundColor: "rgba(75, 85, 99, 0.4)" }}
     >
       <div
-        className={`bg-white rounded-lg shadow-xl ${size} w-full max-h-[90vh] overflow-hidden flex flex-col`}
-        style={{ maxHeight: "90vh" }}
+        className={`bg-white rounded-lg shadow-xl ${size} w-full max-h-dvh overflow-hidden flex flex-col`}
+        style={{ maxHeight: "90dvh" }}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
           <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
@@ -89,7 +101,7 @@ const Modal = ({ isOpen, onClose, title, children, size = "max-w-md" }) => {
 const FileUpload = ({
   onFileSelect,
   selectedFile,
-  accept = ".pdf,.xlsx,.xls",
+  accept = ".pdf,.xls,.xlsx,.csv,.doc,.docx",
 }) => {
   const [dragActive, setDragActive] = useState(false);
 
@@ -129,7 +141,7 @@ const FileUpload = ({
   return (
     <div className="w-full">
       <label className="block text-sm font-medium text-gray-700 mb-2">
-        Upload Document
+        Upload Document <span className="text-red-500">*</span>
       </label>
       <div
         className={`relative border-2 border-dashed rounded-lg p-6 text-center hover:bg-gray-50 transition-colors ${
@@ -161,7 +173,7 @@ const FileUpload = ({
             )}
           </p>
           <p className="text-xs text-gray-500 mt-1">
-            PDF, Excel files up to 10MB
+            .pdf, .xls, .xlsx, .csv, .doc or .docx files up to 10MB
           </p>
         </div>
       </div>
@@ -179,7 +191,7 @@ const StatusBadge = ({ status }) => {
     } else if (status === "PERLU UPDATE") {
       return { text: "PERLU UPDATE", color: "bg-yellow-100 text-yellow-800" };
     } else {
-      return { text: "Unknown", color: "bg-gray-100 text-gray-800" };
+      return { text: "DATE UNSET", color: "bg-gray-800 text-gray-50" };
     }
   };
 
@@ -574,13 +586,12 @@ const MillSheet = () => {
       material: "",
       tanggal_report: "",
       tanggal_expire: "",
-      status: "OK", // Default status
+      status: "Unset", // Default status
       id_supplier: "",
       id_jenis_dokumen: "",
       id_part_number: "",
       id_part_name: "",
       document_url: "",
-      // Reset manual input fields
       part_name_manual: "",
       part_number_manual: "",
     });
@@ -994,6 +1005,22 @@ const MillSheet = () => {
     return new Date(dateString).toLocaleDateString("id-ID");
   };
 
+  const isFieldDisabled = (fieldName) => {
+    if (showAddModal) return false; // semua aktif saat Add
+    if (session?.user?.role === "Author") return false; // Author bebas edit seluruh field
+
+    if (session?.user?.role === "Supplier" && showEditModal) {
+      const editableFields = [
+        "tanggal_report",
+        "tanggal_expire",
+        "document_url",
+      ]; // Ketika supplier edit hanya beberapa field yang boleh aktif
+      return !editableFields.includes(fieldName);
+    }
+
+    return false;
+  };
+
   return (
     <div className="w-full max-w-screen mx-auto bg-gray-50 h-fit overflow-y-auto">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -1013,10 +1040,10 @@ const MillSheet = () => {
                 onClick={openAddModal}
                 disabled={loading}
                 title="Add New Mill Sheet"
-                className="flex items-center justify-center gap-1 py-1 px-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors duration-150 w-[88px] sm:w-auto"
+                className="flex items-center justify-center gap-1 py-1 px-3 h-10 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors duration-150 sm:w-auto cursor-pointer"
               >
                 <Plus size={16} />
-                Add
+                Add Document
               </button>
 
               {/* Search */}
@@ -1027,7 +1054,7 @@ const MillSheet = () => {
                   placeholder="Search supplier, part number, part name, material..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 w-1/2 min-w-56 sm:w-80"
+                  className="pl-9 pr-4 py-2 h-10 w-full md:min-w-[260px] lg:min-w-[280px] border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2"
                 />
               </div>
             </div>
@@ -1038,31 +1065,37 @@ const MillSheet = () => {
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               {/* Document Type Filter */}
               <div className="flex items-center space-x-1">
-                <Filter size={16} className="text-gray-700" />
+                <Filter size={20} className="text-gray-700" />
                 <label className="text-sm font-medium text-gray-700 mr-2">
-                  Filter:
+                  Type:
                 </label>
-                <select
-                  value={documentTypeFilter}
-                  onChange={(e) => setDocumentTypeFilter(e.target.value)}
-                  className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">All Document Types</option>
-                  {documentTypeFilterOptions.map((option) => (
-                    <option key={option.id} value={option.nama}>
-                      {option.nama}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative w-full md:w-auto">
+                  <select
+                    value={documentTypeFilter}
+                    onChange={(e) => setDocumentTypeFilter(e.target.value)}
+                    className="px-3 py-1 h-10 w-full md:min-w-[400px] lg:min-w-[440px] border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">All Document Type</option>
+                    {documentTypeFilterOptions.map((option) => (
+                      <option key={option.id} value={option.nama}>
+                        {option.nama}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown
+                    size={18}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500"
+                  />
+                </div>
               </div>
 
               {/* Clear Filters Button */}
               {hasActiveFilters && (
                 <button
                   onClick={clearFilters}
-                  className="flex items-center space-x-1 px-3 py-1 text-sm text-gray-600 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                  className="flex items-center space-x-1 px-3 py-1 h-10 text-sm text-gray-600 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
                 >
-                  <X size={14} />
+                  <X size={18} />
                   <span>Clear Filters</span>
                 </button>
               )}
@@ -1236,7 +1269,7 @@ const MillSheet = () => {
                       <td className="px-6 py-4 text-sm text-gray-900">
                         {formatDate(item.tanggal_expire)}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
+                      <td className="px-6 py-4 text-sm text-center">
                         <StatusBadge status={item.status} />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
@@ -1271,7 +1304,10 @@ const MillSheet = () => {
                           </button>
 
                           {/* Edit Button */}
-                          {session?.user?.role === "Author" && (
+                          {(session?.user?.role === "Author" ||
+                            (session?.user?.role === "Supplier" &&
+                              (item.status === "NG" ||
+                                item.status === "PERLU UPDATE"))) && (
                             <button
                               onClick={() => openEditModal(item)}
                               disabled={loading}
@@ -1406,14 +1442,15 @@ const MillSheet = () => {
                   handleFormDataChange("material", e.target.value)
                 }
                 placeholder="Enter material name..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                disabled={isFieldDisabled("material")}
               />
             </div>
 
             {/* Jenis Dokumen */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Document Type
+                Document Type <span className="text-red-500">*</span>
               </label>
               <SimpleSelect
                 value={formData.id_jenis_dokumen}
@@ -1422,7 +1459,8 @@ const MillSheet = () => {
                 }
                 options={jenisDocOptions}
                 placeholder="Select document type..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 disabled:h-11 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                disabled={isFieldDisabled("id_jenis_dokumen")}
               />
             </div>
 
@@ -1430,7 +1468,7 @@ const MillSheet = () => {
             {session?.user?.role === "Author" && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Supplier
+                  Supplier <span className="text-red-500">*</span>
                 </label>
                 <SimpleSelect
                   value={formData.id_supplier}
@@ -1439,7 +1477,8 @@ const MillSheet = () => {
                   }
                   options={supplierOptions}
                   placeholder="Select supplier..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                  disabled={isFieldDisabled("id_supplier")}
                 />
               </div>
             )}
@@ -1447,7 +1486,7 @@ const MillSheet = () => {
             {/* Part Name - Role-based rendering */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Part Name
+                Part Name <span className="text-red-500">*</span>
               </label>
               {session?.user?.role === "Supplier" ? (
                 <input
@@ -1457,7 +1496,8 @@ const MillSheet = () => {
                     handleFormDataChange("part_name_manual", e.target.value)
                   }
                   placeholder="Enter part name..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                  disabled={isFieldDisabled("part_name_manual")}
                 />
               ) : (
                 <SimpleSelect
@@ -1467,7 +1507,8 @@ const MillSheet = () => {
                   }
                   options={partNameOptions}
                   placeholder="Select part name..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                  disabled={isFieldDisabled("id_part_name")}
                 />
               )}
             </div>
@@ -1475,7 +1516,7 @@ const MillSheet = () => {
             {/* Part Number - Role-based rendering */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Part Number
+                Part Number <span className="text-red-500">*</span>
               </label>
               {session?.user?.role === "Supplier" ? (
                 <input
@@ -1485,7 +1526,8 @@ const MillSheet = () => {
                     handleFormDataChange("part_number_manual", e.target.value)
                   }
                   placeholder="Enter part number..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                  disabled={isFieldDisabled("part_number_manual")}
                 />
               ) : (
                 <SimpleSelect
@@ -1495,7 +1537,8 @@ const MillSheet = () => {
                   }
                   options={partNumberOptions}
                   placeholder="Select part number..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                  disabled={isFieldDisabled("id_part_number")}
                 />
               )}
             </div>
@@ -1503,58 +1546,64 @@ const MillSheet = () => {
             {/* Tanggal Report */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Report Date
+                Report Date <span className="text-red-500">*</span>
               </label>
               <input
                 type="date"
                 value={formData.tanggal_report}
+                placeholder="Select Report Date"
                 onChange={(e) =>
                   handleFormDataChange("tanggal_report", e.target.value)
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                disabled={isFieldDisabled("tanggal_report")}
               />
             </div>
 
             {/* Tanggal Expire */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Expire Date
+                Expire Date <span className="text-red-500">*</span>
               </label>
               <input
                 type="date"
                 value={formData.tanggal_expire}
+                placeholder="Select Expire Date"
                 onChange={(e) =>
                   handleFormDataChange("tanggal_expire", e.target.value)
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                disabled={isFieldDisabled("tanggal_expire")}
               />
             </div>
 
-            {/* NEW: Status Display (Read-only) */}
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Document Status (Auto-calculated)
+                Document Status (auto calculated)
               </label>
               <div className="p-3 bg-gray-50 border border-gray-300 rounded-lg">
                 <div className="flex items-center justify-between">
-                  <StatusBadge status={formData.status} />
-                  <span className="text-sm text-gray-600">
+                  <div className="text-center">
+                    <StatusBadge status={formData.status} />
+                  </div>
+                  <span className="text-sm text-end text-gray-600">
                     {formData.tanggal_expire
                       ? `Based on expire date: ${formatDate(formData.tanggal_expire)}`
                       : "Please select expire date"}
                   </span>
                 </div>
                 <div className="mt-2 text-xs text-gray-500">
+                  <p className="font-bold mb-1">Descriptions :</p>
                   <p>
                     • <strong>OK:</strong> Document expires more than 3 months
                     from today
                   </p>
                   <p>
-                    • <strong>PERLU UPDATE:</strong> Document expires within 3
-                    months
+                    • <strong>NG:</strong> Document has already expired
                   </p>
                   <p>
-                    • <strong>NG:</strong> Document has already expired
+                    • <strong>PERLU UPDATE:</strong> Document expires within 3
+                    months
                   </p>
                 </div>
               </div>
@@ -1565,7 +1614,8 @@ const MillSheet = () => {
               <FileUpload
                 onFileSelect={setSelectedFile}
                 selectedFile={selectedFile}
-                accept=".pdf,.xlsx,.xls"
+                accept=".pdf,.xls,.xlsx,.csv,.doc,.docx"
+                disabled={isFieldDisabled("document_url")}
               />
               {formData.document_url && !selectedFile && (
                 <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
