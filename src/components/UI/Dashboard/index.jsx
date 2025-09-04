@@ -885,9 +885,10 @@ const MillSheet = () => {
         console.log("Insert successful:", data);
         toast.success("Data successfully added!");
       } else {
-        // For update, remove id from data
+        // Saat update hilangkan id material dan id user
         const updateData = { ...processedData };
         delete updateData.id_material_control;
+        delete updateData.id_user;
 
         const { error } = await supabase
           .from("material_control")
