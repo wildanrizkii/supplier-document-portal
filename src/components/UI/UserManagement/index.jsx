@@ -20,6 +20,7 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
+import bcrypt from "bcryptjs";
 import supabase from "@/app/utils/db";
 import toast from "react-hot-toast";
 import SkeletonLoading from "@/components/SkeletonLoading";
@@ -51,6 +52,7 @@ const Modal = ({ isOpen, onClose, title, children }) => {
 
 const UserManagement = () => {
   const [allData, setAllData] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(false);
 
   // Modal states
@@ -62,10 +64,11 @@ const UserManagement = () => {
   const [formData, setFormData] = useState({
     nama: "",
     email: "",
+    supplier: "",
+    no_hp: "",
     password: "",
     role: "Author",
-    no_hp: "",
-    email_verified: true,
+    email_verified: false,
   });
 
   const fetchUsers = async () => {
@@ -100,6 +103,22 @@ const UserManagement = () => {
 
   useEffect(() => {
     fetchUsers();
+  }, []);
+
+  const fetchSuppliers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("supplier")
+        .select("id_supplier, nama");
+      if (error) throw error;
+      setSuppliers(data);
+    } catch (error) {
+      console.error("Error fetching suppliers:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchSuppliers();
   }, []);
 
   // State untuk search, pagination, dan sorting
@@ -267,12 +286,46 @@ const UserManagement = () => {
     return true;
   };
 
-  // Generate password hash (you should use bcrypt in actual implementation)
   const hashPassword = async (password) => {
-    // This is a placeholder - use proper bcrypt hashing in production
-    return `$2b$12$${btoa(password + "salt")
-      .replace(/[^a-zA-Z0-9]/g, "")
-      .substring(0, 53)}`;
+    const saltRounds = 12;
+    const hashedNewPassword = await bcrypt.hash(password, saltRounds);
+    return hashedNewPassword;
+  };
+
+  const sendVerificationEmail = async (email, token, name) => {
+    try {
+      const response = await fetch("/api/send-verification", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          token,
+          name,
+        }),
+      });
+
+      if (!response.ok) {
+        return { success: false, error: "Gagal mengirim email verifikasi!" };
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error("Error sending verification email:", error);
+      return {
+        success: false,
+        error: "Terjadi kesalahan saat mengirim email!",
+      };
+    }
+  };
+
+  const generateVerificationToken = () => {
+    return (
+      Math.random().toString(36).substring(2, 15) +
+      Math.random().toString(36).substring(2, 15) +
+      Date.now().toString(36)
+    );
   };
 
   // CRUD Operations with Supabase
@@ -281,18 +334,22 @@ const UserManagement = () => {
 
     try {
       setLoading(true);
+      const verificationToken = generateVerificationToken();
+      const verificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
       // Check if email already exists
       const { data: existingUser, error: checkError } = await supabase
         .from("users")
         .select("email")
         .eq("email", formData.email.trim().toLowerCase())
-        .single();
+        .maybeSingle();
 
       if (existingUser) {
         toast.error("Email already exists!");
         return;
       }
+
+      if (checkError) throw checkError;
 
       // Hash the password
       const hashedPassword = await hashPassword(formData.password);
@@ -303,10 +360,14 @@ const UserManagement = () => {
           {
             nama: formData.nama.trim(),
             email: formData.email.trim().toLowerCase(),
-            password: hashedPassword,
-            role: formData.role,
             no_hp: formData.no_hp.trim(),
+            id_supplier: formData.supplier || null,
+            role: formData.role,
+            password: hashedPassword,
             email_verified: formData.email_verified,
+            verification_token: verificationToken,
+            verification_token_expires: verificationExpiry.toISOString(),
+            created_at: new Date().toISOString(),
           },
         ])
         .select();
@@ -322,6 +383,23 @@ const UserManagement = () => {
         email_verified: data[0].email_verified,
         created_at: data[0].created_at,
       };
+
+      const emailResult = await sendVerificationEmail(
+        formData.email.trim().toLowerCase(),
+        verificationToken,
+        formData.nama.trim()
+      );
+
+      console.log(formData.email.trim().toLowerCase());
+      console.log(verificationToken);
+      console.log(formData.nama.trim());
+
+      if (!emailResult.success) {
+        // Jika gagal kirim email, hapus user yang baru dibuat
+        await supabase.from("users").delete().eq("id", newItem.id);
+
+        return { success: false, error: emailResult.error };
+      }
 
       setAllData((prev) => [newItem, ...prev]);
       closeAllModals();
@@ -793,7 +871,7 @@ const UserManagement = () => {
               </p>
             </div>
 
-            <div>
+            <div className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Role *
               </label>
@@ -802,11 +880,73 @@ const UserManagement = () => {
                 onChange={(e) =>
                   setFormData({ ...formData, role: e.target.value })
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
               >
                 <option value="Supplier">Supplier</option>
                 <option value="Author">Author</option>
               </select>
+              {/* Custom dropdown icon */}
+              <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                <svg
+                  className="w-4 h-4 text-slate-500"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </div>
+            </div>
+
+            <div className="relative">
+              <label className="block text-sm font-medium text-slate-700 mb-3">
+                Supplier
+              </label>
+              <div className="relative">
+                <select
+                  id="supplier"
+                  value={formData.supplier}
+                  onChange={(e) =>
+                    setFormData({ ...formData, supplier: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
+                  required
+                >
+                  <option value="" disabled>
+                    Pilih supplier
+                  </option>
+                  {suppliers.map((supplier) => (
+                    <option
+                      key={supplier.id_supplier}
+                      value={supplier.id_supplier}
+                    >
+                      {supplier.nama}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Custom dropdown icon */}
+                <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                  <svg
+                    className="w-4 h-4 text-slate-500"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </div>
+              </div>
             </div>
 
             <div>
