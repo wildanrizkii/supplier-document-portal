@@ -619,11 +619,13 @@ const MillSheet = () => {
       id_part_number: item.id_part_number || "",
       id_part_name: item.id_part_name || "",
       document_url: item.document_url || null,
+      part_name_manual: item.part_name_name || "",
+      part_number_manual: item.part_number_name || "",
       // Set manual fields based on current data for Supplier role
-      part_name_manual:
-        session?.user?.role === "Supplier" ? item.part_name_name : "",
-      part_number_manual:
-        session?.user?.role === "Supplier" ? item.part_number_name : "",
+      // part_name_manual:
+      //   session?.user?.role === "Supplier" ? item.part_name_name : "",
+      // part_number_manual:
+      //   session?.user?.role === "Supplier" ? item.part_number_name : "",
     });
     setSelectedFile(null);
     setShowEditModal(true);
@@ -764,9 +766,6 @@ const MillSheet = () => {
       throw error;
     }
   };
-
-  console.log({ formData });
-  console.log({ selectedFile });
 
   // Function to insert new reference data
   const insertNewReferenceData = async (tableName, nama) => {
