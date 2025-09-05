@@ -211,6 +211,8 @@ async function handleCronRequest(request, method) {
       }
     );
 
+    console.log(monthlyCategories.others);
+
     console.log("📊 Monthly breakdown:", {
       threeMonths: monthlyCategories.threeMonths.length,
       twoMonths: monthlyCategories.twoMonths.length,
@@ -552,51 +554,193 @@ function generateMonthlyEmailHTML(records, categories) {
       .map((record) => {
         const reportDate = new Date(record.tanggal_report);
         const expireDate = new Date(record.tanggal_expire);
-        const monthsFromReport = Math.floor(
-          (expireDate.getTime() - reportDate.getTime()) /
-            (1000 * 60 * 60 * 24 * 30)
-        );
+
+        let monthsFromReport =
+          (expireDate.getFullYear() - reportDate.getFullYear()) * 12 +
+          (expireDate.getMonth() - reportDate.getMonth());
+
+        // Koreksi kalau tanggal expire lebih kecil dari tanggal report
+        if (expireDate.getDate() < reportDate.getDate()) {
+          monthsFromReport -= 1;
+        }
+
+        console.log({ monthsFromReport });
 
         return `
-         <div class="material-card">
-           <div class="material-header">
-             <h4>${record.material}</h4>
-             <span class="badge ${badgeClass}">${monthsFromReport} bulan dari laporan</span>
-           </div>
-           <table class="info-table">
-             <tr>
-               <td>Supplier</td>
-               <td>${record.supplier?.nama || "Tidak ditentukan"}</td>
-             </tr>
-             <tr>
-               <td>Part Number</td>
-               <td>${record.part_number?.nama || "Tidak ditentukan"}</td>
-             </tr>
-             <tr>
-               <td>Part Name</td>
-               <td>${record.part_name?.nama || "Tidak ditentukan"}</td>
-             </tr>
-             <tr>
-               <td>Jenis Dokumen</td>
-               <td>${record.jenis_dokumen?.nama || "Tidak ditentukan"}</td>
-             </tr>
-             <tr>
-               <td>Tanggal Laporan</td>
-               <td>${
-                 record.tanggal_report
-                   ? new Date(record.tanggal_report).toLocaleDateString("id-ID")
-                   : "Tidak ditentukan"
-               }</td>
-             </tr>
-             <tr>
-               <td>Tanggal Kedaluwarsa</td>
-               <td class="urgent">${new Date(
-                 record.tanggal_expire
-               ).toLocaleDateString("id-ID")}</td>
-             </tr>
-           </table>
-         </div>
-       `;
+<div class="material-card" style="
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+">
+  <!-- Header Section -->
+  <div class="card-header" style="
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  ">
+    <h3 style="
+      font-size: 16px;
+      font-weight: bold;
+      margin: 0;
+      flex: 1;
+      min-width: 200px;
+      line-height: 1.3;
+    ">
+      ${record.material}
+    </h3>
+    <span class="badge ${badgeClass}" style="
+      display: inline-block;
+      padding: 6px 12px;
+      background-color: #007bff;
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: bold;
+      border-radius: 12px;
+      text-align: center;
+      white-space: nowrap;
+      flex-shrink: 0;
+    ">
+      ${monthsFromReport} bulan lagi
+    </span>
+  </div>
+
+  <!-- Info Table -->
+  <table class="info-table" style="
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  ">
+    <tr>
+      <td style="
+        padding: 8px 0;
+        font-weight: 500;
+        width: 30%;
+        vertical-align: top;
+        border-bottom: 1px solid #f0f0f0;
+      ">Supplier</td>
+      <td style="
+        padding: 8px 0;
+        padding-left: 16px;
+        border-bottom: 1px solid #f0f0f0;
+        word-break: break-word;
+      ">${record.supplier?.nama || "Tidak ditentukan"}</td>
+    </tr>
+    <tr>
+      <td style="
+        padding: 8px 0;
+        font-weight: 500;
+        width: 30%;
+        vertical-align: top;
+        border-bottom: 1px solid #f0f0f0;
+      ">Part Number</td>
+      <td style="
+        padding: 8px 0;
+        padding-left: 16px;
+        border-bottom: 1px solid #f0f0f0;
+        word-break: break-word;
+      ">${record.part_number?.nama || "Tidak ditentukan"}</td>
+    </tr>
+    <tr>
+      <td style="
+        padding: 8px 0;
+        font-weight: 500;
+        width: 30%;
+        vertical-align: top;
+        border-bottom: 1px solid #f0f0f0;
+      ">Part Name</td>
+      <td style="
+        padding: 8px 0;
+        padding-left: 16px;
+        border-bottom: 1px solid #f0f0f0;
+        word-break: break-word;
+      ">${record.part_name?.nama || "Tidak ditentukan"}</td>
+    </tr>
+    <tr>
+      <td style="
+        padding: 8px 0;
+        font-weight: 500;
+        width: 30%;
+        vertical-align: top;
+        border-bottom: 1px solid #f0f0f0;
+      ">Jenis Dokumen</td>
+      <td style="
+        padding: 8px 0;
+        padding-left: 16px;
+        border-bottom: 1px solid #f0f0f0;
+        word-break: break-word;
+      ">${record.jenis_dokumen?.nama || "Tidak ditentukan"}</td>
+    </tr>
+    <tr>
+      <td style="
+        padding: 8px 0;
+        font-weight: 500;
+        width: 30%;
+        vertical-align: top;
+        border-bottom: 1px solid #f0f0f0;
+      ">Tanggal Laporan</td>
+      <td style="
+        padding: 8px 0;
+        padding-left: 16px;
+        border-bottom: 1px solid #f0f0f0;
+        word-break: break-word;
+      ">${
+        record.tanggal_report
+          ? new Date(record.tanggal_report).toLocaleDateString("id-ID")
+          : "Tidak ditentukan"
+      }</td>
+    </tr>
+    <tr>
+      <td style="
+        padding: 8px 0;
+        font-weight: 500;
+        width: 30%;
+        vertical-align: top;
+      ">Tanggal Kedaluwarsa</td>
+      <td class="urgent" style="
+        padding: 8px 0;
+        padding-left: 16px;
+        color: #dc3545;
+        font-weight: bold;
+        word-break: break-word;
+      ">${new Date(record.tanggal_expire).toLocaleDateString("id-ID")}</td>
+    </tr>
+  </table>
+</div>
+
+<!-- Media Query untuk responsivitas -->
+<style>
+@media (max-width: 480px) {
+  .material-card .card-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  
+  .material-card .card-header h3 {
+    min-width: unset !important;
+    margin-bottom: 8px !important;
+  }
+  
+  .material-card .badge {
+    align-self: flex-start !important;
+  }
+  
+  .material-card .info-table td:first-child {
+    width: 35% !important;
+    font-size: 13px !important;
+  }
+  
+  .material-card .info-table td:last-child {
+    font-size: 13px !important;
+    padding-left: 12px !important;
+  }
+}
+</style>
+`;
       })
       .join("");
 
@@ -806,7 +950,6 @@ function generateMonthlyEmailHTML(records, categories) {
            100% { transform: scale(1); }
          }
          .actions { 
-           background: linear-gradient(135deg, #f0f9ff, #e0f2fe); 
            padding: 25px; 
            border-radius: 8px; 
            margin: 30px 0;

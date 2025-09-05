@@ -864,27 +864,34 @@ const MillSheet = () => {
       );
 
       // Process part name and part number based on role
-      if (session?.user?.role === "Supplier") {
-        // For Supplier: use manual input and find/create records
-        processedData.id_part_name = await findOrCreatePartName(
-          formData.part_name_manual
-        );
-        processedData.id_part_number = await findOrCreatePartNumber(
-          formData.part_number_manual
-        );
-      } else {
-        // For Author: use dropdown selections
-        processedData.id_part_name = await processReferenceDataForAuthor(
-          formData.id_part_name,
-          partNameOptions,
-          "part_name"
-        );
-        processedData.id_part_number = await processReferenceDataForAuthor(
-          formData.id_part_number,
-          partNumberOptions,
-          "part_number"
-        );
-      }
+      // if (session?.user?.role === "Supplier") {
+      //   // For Supplier: use manual input and find/create records
+      //   processedData.id_part_name = await findOrCreatePartName(
+      //     formData.part_name_manual
+      //   );
+      //   processedData.id_part_number = await findOrCreatePartNumber(
+      //     formData.part_number_manual
+      //   );
+      // } else {
+      //   // For Author: use dropdown selections
+      //   processedData.id_part_name = await processReferenceDataForAuthor(
+      //     formData.id_part_name,
+      //     partNameOptions,
+      //     "part_name"
+      //   );
+      //   processedData.id_part_number = await processReferenceDataForAuthor(
+      //     formData.id_part_number,
+      //     partNumberOptions,
+      //     "part_number"
+      //   );
+      // }
+
+      processedData.id_part_name = await findOrCreatePartName(
+        formData.part_name_manual
+      );
+      processedData.id_part_number = await findOrCreatePartNumber(
+        formData.part_number_manual
+      );
 
       if (isAdd) {
         // Filter out null values and id for insert
@@ -1502,7 +1509,17 @@ const MillSheet = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Part Name <span className="text-red-500">*</span>
               </label>
-              {session?.user?.role === "Supplier" ? (
+              <input
+                type="text"
+                value={formData.part_name_manual}
+                onChange={(e) =>
+                  handleFormDataChange("part_name_manual", e.target.value)
+                }
+                placeholder="Enter part name..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                disabled={isFieldDisabled("part_name_manual")}
+              />
+              {/* {session?.user?.role === "Supplier" ? (
                 <input
                   type="text"
                   value={formData.part_name_manual}
@@ -1524,7 +1541,7 @@ const MillSheet = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
                   disabled={isFieldDisabled("id_part_name")}
                 />
-              )}
+              )} */}
             </div>
 
             {/* Part Number - Role-based rendering */}
@@ -1532,7 +1549,17 @@ const MillSheet = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Part Number <span className="text-red-500">*</span>
               </label>
-              {session?.user?.role === "Supplier" ? (
+              <input
+                type="text"
+                value={formData.part_number_manual}
+                onChange={(e) =>
+                  handleFormDataChange("part_number_manual", e.target.value)
+                }
+                placeholder="Enter part number..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
+                disabled={isFieldDisabled("part_number_manual")}
+              />
+              {/* {session?.user?.role === "Supplier" ? (
                 <input
                   type="text"
                   value={formData.part_number_manual}
@@ -1554,7 +1581,7 @@ const MillSheet = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
                   disabled={isFieldDisabled("id_part_number")}
                 />
-              )}
+              )} */}
             </div>
 
             {/* Tanggal Report */}
@@ -1678,13 +1705,9 @@ const MillSheet = () => {
                 // Status dokumen HARUS "OK"
                 formData.status !== "OK" ||
                 // Validasi field berdasarkan role
-                (session?.user?.role === "Supplier"
-                  ? !formData.part_name_manual || !formData.part_number_manual
-                  : session?.user?.role === "Author"
-                    ? !formData.id_part_name ||
-                      !formData.id_part_number ||
-                      !formData.id_supplier
-                    : false)
+                !formData.part_name_manual ||
+                !formData.part_number_manual ||
+                (session?.user?.role === "Author" && !formData.id_supplier)
               }
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors"
             >
