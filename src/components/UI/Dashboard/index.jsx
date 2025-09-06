@@ -255,26 +255,25 @@ const MillSheet = () => {
   const today = dayjs().format("YYYY-MM-DD");
 
   // Function to determine document status based on expire date
-  const determineDocumentStatus = (expireDate, reportDate = null) => {
+  const determineDocumentStatus = (expireDate) => {
     if (!expireDate) return "OK"; // Default status if no expire date
 
-    // Use report date if provided, otherwise use current date
-    const referenceDate = reportDate ? dayjs(reportDate) : dayjs();
+    const currentDate = dayjs();
     const expireDateObj = dayjs(expireDate);
-    const threeMonthsFromReference = referenceDate.add(3, "months");
+    const threeMonthsFromNow = currentDate.add(3, "months");
 
-    // If expire date is in the past (less than reference date)
-    if (expireDateObj.isBefore(referenceDate, "day")) {
+    // If expire date is in the past (less than today)
+    if (expireDateObj.isBefore(currentDate, "day")) {
       return "NG";
     }
-    // If expire date is within 3 months from reference date
+    // If expire date is within 3 months from now
     else if (
-      expireDateObj.isBefore(threeMonthsFromReference, "day") ||
-      expireDateObj.isSame(threeMonthsFromReference, "day")
+      expireDateObj.isBefore(threeMonthsFromNow, "day") ||
+      expireDateObj.isSame(threeMonthsFromNow, "day")
     ) {
       return "PERLU UPDATE";
     }
-    // If expire date is more than 3 months away from reference date
+    // If expire date is more than 3 months away
     else {
       return "OK";
     }

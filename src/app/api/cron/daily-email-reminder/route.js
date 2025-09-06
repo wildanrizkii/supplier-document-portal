@@ -1,3 +1,4 @@
+// app/api/cron/daily-email-reminder/route.js
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import nodemailer from "nodemailer";
@@ -95,10 +96,397 @@ export async function POST(request) {
     return handleCronRequest(testRequest, "POST-TEST");
   }
 
+  // Test endpoint untuk simulasi data expire
+  if (body.test === "simulate_expiry_data") {
+    try {
+      // Ambil sample data untuk simulasi
+      const { data: sampleData, error: sampleError } = await supabase
+        .from("material_control")
+        .select(
+          `
+          id_material_control,
+          material,
+          tanggal_report,
+          tanggal_expire,
+          status,
+          id_user,
+          email:users(email),
+          supplier:id_supplier(nama),
+          part_name:id_part_name(nama),
+          part_number:id_part_number(nama),
+          jenis_dokumen:id_jenis_dokumen(nama)
+        `
+        )
+        .eq("status", true)
+        .limit(5);
+
+      if (sampleError) {
+        return NextResponse.json({
+          success: false,
+          error: "Failed to fetch sample data",
+          details: sampleError.message,
+        });
+      }
+
+      // Simulasi categorize berdasarkan bulan
+      const today = new Date();
+
+      const oneMonth = new Date(today);
+      oneMonth.setMonth(today.getMonth() + 1);
+
+      const twoMonths = new Date(today);
+      twoMonths.setMonth(today.getMonth() + 2);
+
+      const threeMonths = new Date(today);
+      threeMonths.setMonth(today.getMonth() + 3);
+
+      const simulatedData = sampleData?.map((item, index) => {
+        let expireDate;
+        let category;
+
+        if (index % 3 === 0) {
+          expireDate = oneMonth;
+          category = "1_month";
+        } else if (index % 3 === 1) {
+          expireDate = twoMonths;
+          category = "2_months";
+        } else {
+          expireDate = threeMonths;
+          category = "3_months";
+        }
+
+        return {
+          ...item,
+          tanggal_expire: expireDate.toISOString().split("T")[0],
+          simulated_category: category,
+          months_until_expiry: Math.ceil(
+            (expireDate.getTime() - today.getTime()) /
+              (1000 * 60 * 60 * 24 * 30)
+          ),
+        };
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: "Simulated expiry data generated",
+        timestamp: new Date().toISOString(),
+        data: simulatedData,
+        summary: {
+          total_records: simulatedData?.length || 0,
+          categories: {
+            one_month:
+              simulatedData?.filter((d) => d.simulated_category === "1_month")
+                .length || 0,
+            two_months:
+              simulatedData?.filter((d) => d.simulated_category === "2_months")
+                .length || 0,
+            three_months:
+              simulatedData?.filter((d) => d.simulated_category === "3_months")
+                .length || 0,
+          },
+        },
+      });
+    } catch (error) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Simulation failed",
+          message: error.message,
+        },
+        { status: 500 }
+      );
+    }
+  }
+
+  // Test endpoint untuk preview email template
+  if (body.test === "preview_email_template") {
+    try {
+      // Generate sample data untuk template
+      const sampleRecords = [
+        {
+          material: "Sample Material 1",
+          supplier: { nama: "PT Sample Supplier 1" },
+          part_number: { nama: "PN-001" },
+          part_name: { nama: "Sample Part 1" },
+          jenis_dokumen: { nama: "Certificate" },
+          tanggal_report: new Date().toISOString(),
+          tanggal_expire: new Date(
+            Date.now() + 30 * 24 * 60 * 60 * 1000
+          ).toISOString(), // 1 month
+        },
+        {
+          material: "Sample Material 2",
+          supplier: { nama: "PT Sample Supplier 2" },
+          part_number: { nama: "PN-002" },
+          part_name: { nama: "Sample Part 2" },
+          jenis_dokumen: { nama: "Test Report" },
+          tanggal_report: new Date().toISOString(),
+          tanggal_expire: new Date(
+            Date.now() + 60 * 24 * 60 * 60 * 1000
+          ).toISOString(), // 2 months
+        },
+        {
+          material: "Sample Material 3",
+          supplier: { nama: "PT Sample Supplier 3" },
+          part_number: { nama: "PN-003" },
+          part_name: { nama: "Sample Part 3" },
+          jenis_dokumen: { nama: "Inspection Report" },
+          tanggal_report: new Date().toISOString(),
+          tanggal_expire: new Date(
+            Date.now() + 90 * 24 * 60 * 60 * 1000
+          ).toISOString(), // 3 months
+        },
+      ];
+
+      const sampleCategories = {
+        oneMonth: [sampleRecords[0]],
+        twoMonths: [sampleRecords[1]],
+        threeMonths: [sampleRecords[2]],
+      };
+
+      const emailHTML = generateMonthlyEmailHTML(
+        sampleRecords,
+        sampleCategories
+      );
+
+      return NextResponse.json({
+        success: true,
+        message: "Email template preview generated",
+        timestamp: new Date().toISOString(),
+        preview_data: {
+          total_records: sampleRecords.length,
+          categories: sampleCategories,
+        },
+        html_content: emailHTML,
+      });
+    } catch (error) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Template preview failed",
+          message: error.message,
+        },
+        { status: 500 }
+      );
+    }
+  }
+
+  // NEW: Test endpoint untuk validate milestone logic
+  if (body.test === "validate_milestones") {
+    try {
+      debugMonthlyMilestones();
+
+      // Ambil sample data
+      const { data: sampleData, error: sampleError } = await supabase
+        .from("material_control")
+        .select(
+          `
+          id_material_control,
+          material,
+          tanggal_report,
+          tanggal_expire,
+          status,
+          id_user,
+          email:users(email),
+          supplier:id_supplier(nama),
+          part_name:id_part_name(nama),
+          part_number:id_part_number(nama),
+          jenis_dokumen:id_jenis_dokumen(nama)
+        `
+        )
+        .eq("status", true)
+        .limit(10);
+
+      if (sampleError) {
+        return NextResponse.json({
+          success: false,
+          error: "Failed to fetch sample data",
+          details: sampleError.message,
+        });
+      }
+
+      const categories = await testMilestoneLogic(sampleData || []);
+      const { shouldSend, milestoneRecords, breakdown } =
+        shouldSendMonthlyEmail(categories);
+
+      return NextResponse.json({
+        success: true,
+        message: "Milestone validation completed",
+        shouldSendEmail: shouldSend,
+        milestoneRecords: milestoneRecords.length,
+        breakdown: breakdown,
+        categories: categories,
+      });
+    } catch (error) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Milestone validation failed",
+          message: error.message,
+        },
+        { status: 500 }
+      );
+    }
+  }
+
   return handleCronRequest(request, "POST");
 }
 
-// Shared function untuk handle cron logic
+// UPDATED: Helper functions untuk milestone calculation
+function calculateMonthlyMilestones() {
+  const today = new Date();
+
+  // Tepat 1 bulan dari sekarang (toleransi ±1 hari untuk akurasi)
+  const oneMonthFromNow = new Date();
+  oneMonthFromNow.setMonth(today.getMonth() + 1);
+  const oneMonthRange = {
+    start: new Date(oneMonthFromNow.getTime() - 1 * 24 * 60 * 60 * 1000), // 1 hari sebelum
+    end: new Date(oneMonthFromNow.getTime() + 1 * 24 * 60 * 60 * 1000), // 1 hari setelah
+  };
+
+  // Tepat 2 bulan dari sekarang
+  const twoMonthsFromNow = new Date();
+  twoMonthsFromNow.setMonth(today.getMonth() + 2);
+  const twoMonthsRange = {
+    start: new Date(twoMonthsFromNow.getTime() - 1 * 24 * 60 * 60 * 1000),
+    end: new Date(twoMonthsFromNow.getTime() + 1 * 24 * 60 * 60 * 1000),
+  };
+
+  // Tepat 3 bulan dari sekarang
+  const threeMonthsFromNow = new Date();
+  threeMonthsFromNow.setMonth(today.getMonth() + 3);
+  const threeMonthsRange = {
+    start: new Date(threeMonthsFromNow.getTime() - 1 * 24 * 60 * 60 * 1000),
+    end: new Date(threeMonthsFromNow.getTime() + 1 * 24 * 60 * 60 * 1000),
+  };
+
+  return { oneMonthRange, twoMonthsRange, threeMonthsRange };
+}
+
+function isExactlyNMonthsAway(expireDate, monthsAway) {
+  const today = new Date();
+  const targetDate = new Date();
+  targetDate.setMonth(today.getMonth() + monthsAway);
+
+  // Toleransi ±1 hari untuk akurasi
+  const diffInDays = Math.abs(
+    (expireDate.getTime() - targetDate.getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  return diffInDays <= 1;
+}
+
+function categorizeRecordsByExactMonths(records) {
+  const categories = {
+    threeMonths: [],
+    twoMonths: [],
+    oneMonth: [],
+    others: [],
+  };
+
+  if (!records) return categories;
+
+  records.forEach((record) => {
+    const expireDate = new Date(record.tanggal_expire);
+
+    if (isExactlyNMonthsAway(expireDate, 1)) {
+      categories.oneMonth.push(record);
+    } else if (isExactlyNMonthsAway(expireDate, 2)) {
+      categories.twoMonths.push(record);
+    } else if (isExactlyNMonthsAway(expireDate, 3)) {
+      categories.threeMonths.push(record);
+    } else {
+      categories.others.push(record);
+    }
+  });
+
+  return categories;
+}
+
+function shouldSendMonthlyEmail(categories) {
+  const milestoneRecords = [
+    ...categories.threeMonths,
+    ...categories.twoMonths,
+    ...categories.oneMonth,
+  ];
+
+  const shouldSend = milestoneRecords.length > 0;
+
+  console.log(
+    `📧 Should send email: ${shouldSend} (${milestoneRecords.length} milestone records)`
+  );
+
+  return {
+    shouldSend,
+    milestoneRecords,
+    breakdown: {
+      oneMonth: categories.oneMonth.length,
+      twoMonths: categories.twoMonths.length,
+      threeMonths: categories.threeMonths.length,
+      others: categories.others.length,
+    },
+  };
+}
+
+function debugMonthlyMilestones() {
+  const today = new Date();
+  console.log("🔍 Debug Monthly Milestones:");
+  console.log("Today:", today.toISOString().split("T")[0]);
+
+  const { oneMonthRange, twoMonthsRange, threeMonthsRange } =
+    calculateMonthlyMilestones();
+
+  console.log("1 Month Range:", {
+    start: oneMonthRange.start.toISOString().split("T")[0],
+    end: oneMonthRange.end.toISOString().split("T")[0],
+  });
+
+  console.log("2 Months Range:", {
+    start: twoMonthsRange.start.toISOString().split("T")[0],
+    end: twoMonthsRange.end.toISOString().split("T")[0],
+  });
+
+  console.log("3 Months Range:", {
+    start: threeMonthsRange.start.toISOString().split("T")[0],
+    end: threeMonthsRange.end.toISOString().split("T")[0],
+  });
+}
+
+async function testMilestoneLogic(sampleRecords) {
+  console.log("🧪 Testing Milestone Logic:");
+
+  const categories = categorizeRecordsByExactMonths(sampleRecords);
+
+  console.log("Milestone Results:", {
+    oneMonth: categories.oneMonth.length,
+    twoMonths: categories.twoMonths.length,
+    threeMonths: categories.threeMonths.length,
+    others: categories.others.length,
+  });
+
+  // Detail per kategori
+  categories.oneMonth.forEach((record) => {
+    console.log(
+      `📅 1 Month: ${record.material} - expires ${record.tanggal_expire}`
+    );
+  });
+
+  categories.twoMonths.forEach((record) => {
+    console.log(
+      `📅 2 Months: ${record.material} - expires ${record.tanggal_expire}`
+    );
+  });
+
+  categories.threeMonths.forEach((record) => {
+    console.log(
+      `📅 3 Months: ${record.material} - expires ${record.tanggal_expire}`
+    );
+  });
+
+  return categories;
+}
+
+// UPDATED: Shared function untuk handle cron logic dengan logika baru
 async function handleCronRequest(request, method) {
   try {
     // Verify this is a cron job request
@@ -130,45 +518,37 @@ async function handleCronRequest(request, method) {
     console.log("📡 Request source:", isVercelCron ? "Vercel Cron" : "Manual");
     console.log("🔧 Request method:", method);
 
-    // Calculate date ranges for 1, 2, and 3 months from report date
-    const today = new Date();
+    // UPDATED: Calculate precise monthly milestones instead of wide ranges
+    const { oneMonthRange, twoMonthsRange, threeMonthsRange } =
+      calculateMonthlyMilestones();
 
-    // 3 months from report date (90 days tolerance)
-    const threeMonthsFromNow = new Date();
-    threeMonthsFromNow.setMonth(today.getMonth() + 3);
-    const threeMonthsRange = {
-      start: new Date(threeMonthsFromNow.getTime() - 3 * 24 * 60 * 60 * 1000), // 3 days before
-      end: new Date(threeMonthsFromNow.getTime() + 3 * 24 * 60 * 60 * 1000), // 3 days after
-    };
+    // Debug milestone ranges
+    console.log("📅 Milestone Ranges:");
+    console.log("1 Month:", {
+      start: oneMonthRange.start.toISOString().split("T")[0],
+      end: oneMonthRange.end.toISOString().split("T")[0],
+    });
+    console.log("2 Months:", {
+      start: twoMonthsRange.start.toISOString().split("T")[0],
+      end: twoMonthsRange.end.toISOString().split("T")[0],
+    });
+    console.log("3 Months:", {
+      start: threeMonthsRange.start.toISOString().split("T")[0],
+      end: threeMonthsRange.end.toISOString().split("T")[0],
+    });
 
-    // 2 months from report date
-    const twoMonthsFromNow = new Date();
-    twoMonthsFromNow.setMonth(today.getMonth() + 2);
-    const twoMonthsRange = {
-      start: new Date(twoMonthsFromNow.getTime() - 3 * 24 * 60 * 60 * 1000),
-      end: new Date(twoMonthsFromNow.getTime() + 3 * 24 * 60 * 60 * 1000),
-    };
-
-    // 1 month from report date
-    const oneMonthFromNow = new Date();
-    oneMonthFromNow.setMonth(today.getMonth() + 1);
-    const oneMonthRange = {
-      start: new Date(oneMonthFromNow.getTime() - 3 * 24 * 60 * 60 * 1000),
-      end: new Date(oneMonthFromNow.getTime() + 3 * 24 * 60 * 60 * 1000),
-    };
-
-    // Also check for documents expiring within 3 months from report date
-    const threeMonthsMax = new Date();
-    threeMonthsMax.setMonth(today.getMonth() + 3);
-
+    // Get records for broader range to analyze (but we'll filter precisely later)
     const todayStr = dayjs().format("YYYY-MM-DD");
-    const threeMonthsMaxStr = dayjs().add(3, "month").format("YYYY-MM-DD");
+    const threeMonthsMaxStr = dayjs()
+      .add(3, "month")
+      .add(5, "day")
+      .format("YYYY-MM-DD"); // Buffer untuk akurasi
 
     console.log(
-      `📅 Checking expiry dates between ${todayStr} and ${threeMonthsMaxStr} (from report date)`
+      `📅 Querying expiry dates between ${todayStr} and ${threeMonthsMaxStr}`
     );
 
-    // Get records expiring within the next 3 months from report date
+    // Get records expiring within the next ~3 months (with buffer)
     const { data: expiringRecords, error: queryError } = await supabase
       .from("material_control")
       .select(
@@ -198,38 +578,26 @@ async function handleCronRequest(request, method) {
     }
 
     console.log(
-      `📊 Found ${expiringRecords?.length || 0} expiring records within 3 months`
+      `📊 Found ${expiringRecords?.length || 0} records within query range`
     );
 
-    // Filter records into monthly categories based on report date
-    const monthlyCategories = categorizeRecordsByMonthFromReportDate(
-      expiringRecords,
-      {
-        oneMonth: oneMonthRange,
-        twoMonths: twoMonthsRange,
-        threeMonths: threeMonthsRange,
-      }
-    );
+    // UPDATED: Use exact monthly milestone categorization
+    const monthlyCategories = categorizeRecordsByExactMonths(expiringRecords);
 
-    console.log(monthlyCategories.others);
-
-    console.log("📊 Monthly breakdown:", {
+    console.log("📊 Exact Monthly Milestone breakdown:", {
       threeMonths: monthlyCategories.threeMonths.length,
       twoMonths: monthlyCategories.twoMonths.length,
       oneMonth: monthlyCategories.oneMonth.length,
       others: monthlyCategories.others.length,
     });
 
-    // Check if we should send emails today (only send for specific monthly milestones)
-    const recordsToNotify = [
-      ...monthlyCategories.threeMonths,
-      ...monthlyCategories.twoMonths,
-      ...monthlyCategories.oneMonth,
-    ];
+    // UPDATED: Check if we should send emails (only for exact milestones)
+    const { shouldSend, milestoneRecords, breakdown } =
+      shouldSendMonthlyEmail(monthlyCategories);
 
-    if (!recordsToNotify || recordsToNotify.length === 0) {
+    if (!shouldSend) {
       console.log(
-        "✅ No monthly milestone records found - cron job completed successfully"
+        "✅ No exact monthly milestone records found - cron job completed successfully"
       );
 
       // Log to database
@@ -239,15 +607,11 @@ async function handleCronRequest(request, method) {
         records_found: expiringRecords?.length || 0,
         status: "completed",
         emails_sent: 0,
-        result: "No monthly milestone records found",
+        result: "No exact monthly milestone records found",
         details: {
-          total_within_3months: expiringRecords?.length || 0,
-          monthly_breakdown: {
-            three_months: monthlyCategories.threeMonths.length,
-            two_months: monthlyCategories.twoMonths.length,
-            one_month: monthlyCategories.oneMonth.length,
-            others: monthlyCategories.others.length,
-          },
+          total_queried: expiringRecords?.length || 0,
+          exact_milestones: 0,
+          monthly_breakdown: breakdown,
           method: method,
           source: isVercelCron ? "vercel-cron" : "manual",
         },
@@ -259,20 +623,16 @@ async function handleCronRequest(request, method) {
 
       return NextResponse.json({
         success: true,
-        message: "Cron job completed - no monthly milestone records found",
+        message:
+          "Cron job completed - no exact monthly milestone records found",
         timestamp: new Date().toISOString(),
         details: {
-          total_expiring_records: expiringRecords?.length || 0,
-          monthly_milestones: 0,
+          total_queried_records: expiringRecords?.length || 0,
+          exact_milestone_records: 0,
           emails_sent: 0,
           method: method,
           source: isVercelCron ? "vercel-cron" : "manual",
-          breakdown: {
-            three_months: monthlyCategories.threeMonths.length,
-            two_months: monthlyCategories.twoMonths.length,
-            one_month: monthlyCategories.oneMonth.length,
-            others: monthlyCategories.others.length,
-          },
+          breakdown: breakdown,
         },
       });
     }
@@ -300,7 +660,7 @@ async function handleCronRequest(request, method) {
       return grouped;
     }
 
-    const groupedByUser = groupByUser(recordsToNotify);
+    const groupedByUser = groupByUser(milestoneRecords);
     console.log("👥 Users to notify:", Object.keys(groupedByUser).length);
 
     let totalEmailsSent = 0;
@@ -314,12 +674,8 @@ async function handleCronRequest(request, method) {
       },
     ] of Object.entries(groupedByUser)) {
       try {
-        // Categorize this user's records
-        const userCategories = categorizeRecordsByMonthFromReportDate(records, {
-          oneMonth: oneMonthRange,
-          twoMonths: twoMonthsRange,
-          threeMonths: threeMonthsRange,
-        });
+        // Categorize this user's milestone records
+        const userCategories = categorizeRecordsByExactMonths(records);
 
         const emailHTML = generateMonthlyEmailHTML(records, userCategories);
         const emailSubject = `📅 Pengingat Bulanan: ${records.length} Dokumen Anda Akan Kedaluwarsa`;
@@ -342,7 +698,7 @@ async function handleCronRequest(request, method) {
           recipients: email,
           created_at: new Date().toISOString(),
           details: {
-            email_type: "monthly_reminder",
+            email_type: "monthly_reminder_milestone",
             materials: records.map((r) => r.material),
             message_id: emailResult?.messageId || null,
             monthly_breakdown: {
@@ -368,7 +724,7 @@ async function handleCronRequest(request, method) {
           created_at: new Date().toISOString(),
           details: {
             error: emailError.message,
-            email_type: "monthly_reminder",
+            email_type: "monthly_reminder_milestone",
             materials: records.map((r) => r.material),
           },
         });
@@ -387,20 +743,16 @@ async function handleCronRequest(request, method) {
     const { error: cronLogError } = await supabase.from("cron_logs").insert({
       job_name: "monthly-email-reminder",
       execution_time: new Date().toISOString(),
-      records_found: recordsToNotify.length,
+      records_found: milestoneRecords.length,
       status: "completed",
       emails_sent: totalEmailsSent,
       emails_failed: totalEmailsFailed,
-      result: `Berhasil mengirim ${totalEmailsSent} email bulanan dengan ${recordsToNotify.length} material`,
+      result: `Berhasil mengirim ${totalEmailsSent} email untuk ${milestoneRecords.length} milestone materials`,
       completed_at: new Date().toISOString(),
       details: {
-        total_within_3months: expiringRecords?.length || 0,
-        monthly_breakdown: {
-          three_months: monthlyCategories.threeMonths.length,
-          two_months: monthlyCategories.twoMonths.length,
-          one_month: monthlyCategories.oneMonth.length,
-          others: monthlyCategories.others.length,
-        },
+        total_queried: expiringRecords?.length || 0,
+        exact_milestone_records: milestoneRecords.length,
+        monthly_breakdown: breakdown,
         method: method,
         source: isVercelCron ? "vercel-cron" : "manual",
       },
@@ -419,19 +771,14 @@ async function handleCronRequest(request, method) {
       message: "Monthly email reminder cron job completed successfully",
       timestamp: new Date().toISOString(),
       details: {
-        total_expiring_records: expiringRecords?.length || 0,
-        monthly_milestone_records: recordsToNotify.length,
+        total_queried_records: expiringRecords?.length || 0,
+        exact_milestone_records: milestoneRecords.length,
         emails_sent: totalEmailsSent,
         emails_failed: totalEmailsFailed,
-        email_type: "monthly_reminder",
+        email_type: "monthly_reminder_milestone",
         method: method,
         source: isVercelCron ? "vercel-cron" : "manual",
-        breakdown: {
-          three_months: monthlyCategories.threeMonths.length,
-          two_months: monthlyCategories.twoMonths.length,
-          one_month: monthlyCategories.oneMonth.length,
-          others: monthlyCategories.others.length,
-        },
+        breakdown: breakdown,
         smtp_config: {
           from: process.env.SMTP_FROM,
           user: process.env.SMTP_USER,
@@ -466,79 +813,20 @@ async function handleCronRequest(request, method) {
   }
 }
 
-// Helper function to categorize records by monthly milestones from report date
-function categorizeRecordsByMonthFromReportDate(records, ranges) {
-  const categories = {
-    threeMonths: [],
-    twoMonths: [],
-    oneMonth: [],
-    others: [],
-  };
+// REMOVED: Old categorizeRecordsByMonth function - replaced with categorizeRecordsByExactMonths
 
-  if (!records) return categories;
-
-  records.forEach((record) => {
-    const reportDate = new Date(record.tanggal_report);
-    const expireDate = new Date(record.tanggal_expire);
-
-    // Calculate months from report date to expiry
-    const monthsFromReport = Math.floor(
-      (expireDate.getTime() - reportDate.getTime()) / (1000 * 60 * 60 * 24 * 30)
-    );
-
-    // Check if it's close to 3 months from report date (within 3 days tolerance)
-    const threeMonthsFromReport = new Date(reportDate);
-    threeMonthsFromReport.setMonth(reportDate.getMonth() + 3);
-
-    const twoMonthsFromReport = new Date(reportDate);
-    twoMonthsFromReport.setMonth(reportDate.getMonth() + 2);
-
-    const oneMonthFromReport = new Date(reportDate);
-    oneMonthFromReport.setMonth(reportDate.getMonth() + 1);
-
-    // Check with 3 days tolerance
-    const tolerance = 3 * 24 * 60 * 60 * 1000; // 3 days in milliseconds
-
-    if (
-      Math.abs(expireDate.getTime() - threeMonthsFromReport.getTime()) <=
-      tolerance
-    ) {
-      categories.threeMonths.push(record);
-    } else if (
-      Math.abs(expireDate.getTime() - twoMonthsFromReport.getTime()) <=
-      tolerance
-    ) {
-      categories.twoMonths.push(record);
-    } else if (
-      Math.abs(expireDate.getTime() - oneMonthFromReport.getTime()) <= tolerance
-    ) {
-      categories.oneMonth.push(record);
-    } else {
-      categories.others.push(record);
-    }
-  });
-
-  return categories;
-}
-
-// Monthly Email HTML template
+// Monthly Email HTML template (unchanged)
 function generateMonthlyEmailHTML(records, categories) {
   // Sort records by months until expiry (most urgent first)
   const sortedRecords = records.sort((a, b) => {
-    const reportDateA = new Date(a.tanggal_report);
-    const expireDateA = new Date(a.tanggal_expire);
-    const reportDateB = new Date(b.tanggal_report);
-    const expireDateB = new Date(b.tanggal_expire);
-
     const monthsA = Math.ceil(
-      (expireDateA.getTime() - reportDateA.getTime()) /
+      (new Date(a.tanggal_expire).getTime() - new Date().getTime()) /
         (1000 * 60 * 60 * 24 * 30)
     );
     const monthsB = Math.ceil(
-      (expireDateB.getTime() - reportDateB.getTime()) /
+      (new Date(b.tanggal_expire).getTime() - new Date().getTime()) /
         (1000 * 60 * 60 * 24 * 30)
     );
-
     return monthsA - monthsB;
   });
 
@@ -552,20 +840,19 @@ function generateMonthlyEmailHTML(records, categories) {
 
     const cardsHTML = categoryRecords
       .map((record) => {
-        const reportDate = new Date(record.tanggal_report);
+        const today = new Date();
         const expireDate = new Date(record.tanggal_expire);
 
-        let monthsFromReport =
-          (expireDate.getFullYear() - reportDate.getFullYear()) * 12 +
-          (expireDate.getMonth() - reportDate.getMonth());
+        let monthsUntilExpiry =
+          (expireDate.getFullYear() - today.getFullYear()) * 12 +
+          (expireDate.getMonth() - today.getMonth());
 
-        // Koreksi kalau tanggal expire lebih kecil dari tanggal report
-        if (expireDate.getDate() < reportDate.getDate()) {
-          monthsFromReport -= 1;
+        // Koreksi kalau hari expire < hari sekarang
+        if (expireDate.getDate() < today.getDate()) {
+          monthsUntilExpiry -= 1;
         }
 
-        console.log({ monthsFromReport });
-
+        console.log(monthsUntilExpiry);
         return `
 <div class="material-card" style="
   border: 1px solid #e0e0e0;
@@ -593,10 +880,10 @@ function generateMonthlyEmailHTML(records, categories) {
     ">
       ${record.material}
     </h3>
-    <span class="badge ${badgeClass}" style="
+    <span class="badge badge-${badgeClass}" style="
       display: inline-block;
       padding: 6px 12px;
-      background-color: #007bff;
+      background-color: ${badgeClass === "critical" ? "#dc2626" : badgeClass === "warning" ? "#f59e0b" : "#3b82f6"};
       color: #ffffff;
       font-size: 14px;
       font-weight: bold;
@@ -605,7 +892,7 @@ function generateMonthlyEmailHTML(records, categories) {
       white-space: nowrap;
       flex-shrink: 0;
     ">
-      ${monthsFromReport} bulan lagi
+      ${monthsUntilExpiry} bulan lagi
     </span>
   </div>
 
@@ -711,36 +998,7 @@ function generateMonthlyEmailHTML(records, categories) {
     </tr>
   </table>
 </div>
-
-<!-- Media Query untuk responsivitas -->
-<style>
-@media (max-width: 480px) {
-  .material-card .card-header {
-    flex-direction: column !important;
-    align-items: stretch !important;
-  }
-  
-  .material-card .card-header h3 {
-    min-width: unset !important;
-    margin-bottom: 8px !important;
-  }
-  
-  .material-card .badge {
-    align-self: flex-start !important;
-  }
-  
-  .material-card .info-table td:first-child {
-    width: 35% !important;
-    font-size: 13px !important;
-  }
-  
-  .material-card .info-table td:last-child {
-    font-size: 13px !important;
-    padding-left: 12px !important;
-  }
-}
-</style>
-`;
+        `;
       })
       .join("");
 
@@ -754,17 +1012,17 @@ function generateMonthlyEmailHTML(records, categories) {
 
   const oneMonthHTML = generateMaterialCards(
     categories.oneMonth,
-    "📋 1 Bulan dari Tanggal Laporan",
+    "📋 Expire dalam 1 Bulan",
     "critical"
   );
   const twoMonthsHTML = generateMaterialCards(
     categories.twoMonths,
-    "📋 2 Bulan dari Tanggal Laporan",
+    "📋 Expire dalam 2 Bulan",
     "warning"
   );
   const threeMonthsHTML = generateMaterialCards(
     categories.threeMonths,
-    "📋 3 Bulan dari Tanggal Laporan",
+    "📋 Expire dalam 3 Bulan",
     "alert"
   );
 
@@ -950,6 +1208,7 @@ function generateMonthlyEmailHTML(records, categories) {
            100% { transform: scale(1); }
          }
          .actions { 
+           background: linear-gradient(135deg, #f0f9ff, #e0f2fe); 
            padding: 25px; 
            border-radius: 8px; 
            margin: 30px 0;
@@ -1004,31 +1263,31 @@ function generateMonthlyEmailHTML(records, categories) {
      <body>
        <div class="container">
          <div class="header">
-           <h1>📅 Pengingat Bulanan Dokumen</h1>
-           <p>${records.length} Dokumen Memerlukan Perhatian Berdasarkan Tanggal Laporan</p>
+           <h1>📅 Pengingat Milestone Dokumen</h1>
+           <p>${records.length} Dokumen Mencapai Milestone Bulanan</p>
          </div>
          
          <div class="content">
            <div class="alert">
-             <strong>📊 Pengingat Bulanan:</strong> Anda memiliki <strong>${
+             <strong>🎯 Milestone Alert:</strong> Anda memiliki <strong>${
                records.length
-             } dokumen</strong> yang mencapai milestone 1, 2, atau 3 bulan dari tanggal laporan. Mohon rencanakan pembaruan dokumen sesuai timeline.
+             } dokumen</strong> yang tepat mencapai milestone 1, 2, atau 3 bulan sebelum expire. Ini adalah pengingat bulanan yang dikirim hanya pada tanggal milestone.
            </div>
            
            <div class="summary">
-             <h4>📊 Ringkasan Bulanan Berdasarkan Tanggal Laporan</h4>
+             <h4>📊 Breakdown Milestone Bulanan</h4>
              <div class="summary-grid">
                <div class="summary-item">
                  <div class="summary-number critical-number">${categories.oneMonth.length}</div>
-                 <div>1 Bulan</div>
+                 <div>Tepat 1 Bulan</div>
                </div>
                <div class="summary-item">
                  <div class="summary-number warning-number">${categories.twoMonths.length}</div>
-                 <div>2 Bulan</div>
+                 <div>Tepat 2 Bulan</div>
                </div>
                <div class="summary-item">
                  <div class="summary-number alert-number">${categories.threeMonths.length}</div>
-                 <div>3 Bulan</div>
+                 <div>Tepat 3 Bulan</div>
                </div>
              </div>
            </div>
@@ -1038,25 +1297,23 @@ function generateMonthlyEmailHTML(records, categories) {
            ${threeMonthsHTML}
            
            <div class="actions">
-             <h4>🔧 Rencana Tindakan Bulanan</h4>
+             <h4>🔧 Action Plan Berdasarkan Milestone</h4>
              <ul>
-                <li><strong>Review Berkala:</strong> Evaluasi status dokumen setiap bulan berdasarkan tanggal laporan dan prioritaskan yang sudah mencapai milestone</li>
-                <li><strong>Koordinasi Supplier:</strong> Hubungi pemasok untuk meminta pembaruan dokumen yang sudah mencapai milestone dari tanggal laporan</li>
-                <li><strong>Tracking System:</strong> Pantau progress pembaruan dokumen melalui sistem portal</li>
-                <li><strong>Quality Assurance:</strong> Pastikan dokumen yang diperbarui memenuhi standar terbaru</li>
-                <li><strong>Documentation:</strong> Update catatan material dengan sertifikat dan tanggal expire baru</li>
-                <li><strong>Stakeholder Notification:</strong> Informasikan tim terkait tentang jadwal pembaruan dokumen</li>
-                <li><strong>Contingency Planning:</strong> Siapkan rencana alternatif jika ada kendala pembaruan dokumen</li>
+                <li><strong>1 Bulan (URGENT):</strong> Segera hubungi supplier dan mulai proses renewal dokumen</li>
+                <li><strong>2 Bulan (PRIORITAS):</strong> Mulai koordinasi dengan tim dan persiapan dokumen renewal</li>
+                <li><strong>3 Bulan (PERENCANAAN):</strong> Evaluasi dokumen dan buat jadwal renewal dengan supplier</li>
+                <li><strong>Tracking:</strong> Monitor progress melalui sistem dan set reminder berkala</li>
+                <li><strong>Quality Check:</strong> Pastikan dokumen renewal memenuhi standar terbaru</li>
+                <li><strong>Documentation:</strong> Update sistem dengan dokumen dan tanggal expire baru</li>
+                <li><strong>Stakeholder Notification:</strong> Informasikan tim terkait tentang status renewal</li>
              </ul>
            </div>
          </div>
          
          <div class="footer">
            <p><strong>Sistem Manajemen Portal Dokumen</strong></p>
-           <p><small>Email dikirim dari: ${
-             process.env.SMTP_FROM
-           } ke: wildanrizki9560@gmail.com</small></p>
-           <p><small>Pengingat bulanan ini dikirim setiap hari pada pukul 23:00 UTC untuk milestone 1, 2, dan 3 bulan dari tanggal laporan. Mohon untuk tidak membalas email ini.</small></p>
+           <p><small>Email dikirim dari: ${process.env.SMTP_FROM}
+           <p><small>Email ini dikirim HANYA ketika dokumen mencapai milestone tepat 1, 2, atau 3 bulan sebelum expire. Mohon untuk tidak membalas email ini.</small></p>
          </div>
          
          <div class="timestamp">
@@ -1072,7 +1329,7 @@ function generateMonthlyEmailHTML(records, categories) {
          </div>
          
          <div class="powered-by">
-           Didukung oleh Vercel Cron Jobs & Nodemailer | Sistem Portal Dokumen
+           Didukung oleh Vercel Cron Jobs & Nodemailer | Sistem Portal Dokumen - Milestone Alert System
          </div>
        </div>
      </body>
